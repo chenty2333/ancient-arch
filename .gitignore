@@ -1,0 +1,22 @@
+# Workspace tooling
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+
+# Local environment
+.env
+
+# Rust build artifacts
+backend/target/
+**/target/
+
+# Rust temp/editor files
+**/*.rs.bk
+**/flycheck*
+
+# Project docs to exclude from VCS
+backend/docs/
