@@ -11,7 +11,7 @@ pub fn hash_password(password: &str) -> Result<String, AppError> {
 
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| AppError::Internals)
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?
         .to_string();
 
     Ok(password_hash)

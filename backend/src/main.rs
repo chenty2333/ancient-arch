@@ -3,6 +3,7 @@
 mod config;
 pub mod models;
 pub mod utils;
+pub mod error;
 use config::Config;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::net::SocketAddr;
