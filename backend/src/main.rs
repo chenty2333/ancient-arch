@@ -5,17 +5,26 @@ pub mod models;
 pub mod utils;
 pub mod error;
 pub mod handlers;
+pub mod routes;
+
 use config::Config;
+use dotenvy::dotenv;
 use sqlx::sqlite::SqlitePoolOptions;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::net::SocketAddr;
 use axum::{Router, routing::get};
 
 #[tokio::main]
 async fn main() {
+    // .ok() ignores errors - it's fine if .env file doesn't exist
+    dotenv().ok();
     let config = Config::from_env();
     
-    tracing_subscriber::fmt()
-        .with_env_filter(&config.rust_log)
+    // No longer create the default layer via tracing_subscriber::fmt()
+    // Instead, use registry() for flexibility to add more layers later
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(&config.rust_log))
+        .with(tracing_subscriber::fmt::layer())
         .init();
     
     let pool = SqlitePoolOptions::new()
@@ -26,9 +35,8 @@ async fn main() {
     
     tracing::info!("Database connected...");
     
-    let app = Router::new()
-        .route("/health", get(health_check))
-        .with_state(pool);
+    
+    let app = routes::create_router(pool);
     
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::info!("zk Listening on {}", addr);
