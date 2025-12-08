@@ -1,6 +1,8 @@
 // src/main.rs
 
 mod config;
+pub mod models;
+pub mod utils;
 use config::Config;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::net::SocketAddr;

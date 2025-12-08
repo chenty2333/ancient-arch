@@ -20,3 +20,5 @@ backend/target/
 
 # Project docs to exclude from VCS
 backend/docs/
+
+*.db
