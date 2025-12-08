@@ -12,7 +12,7 @@ pub struct User {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CresteUserRequest {
+pub struct CreateUserRequest {
     pub username: String,
     pub password: String,
 }

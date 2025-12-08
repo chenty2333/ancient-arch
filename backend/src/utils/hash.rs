@@ -5,6 +5,9 @@ use argon2::{
 use crate::error::AppError;
 
 pub fn hash_password(password: &str) -> Result<String, AppError> {
+    // Generate a random 128-bit salt.
+    // Salt prevents rainbow table attacks by ensuring identical passwaors
+    // result in different hashes.
     let salt = SaltString::generate(&mut OsRng);
 
     let argon2 = Argon2::default();
