@@ -1,3 +1,5 @@
+// src/handlers/auth.rs
+
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use sqlx::SqlitePool;
