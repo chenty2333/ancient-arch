@@ -12,7 +12,6 @@ use dotenvy::dotenv;
 use sqlx::sqlite::SqlitePoolOptions;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::net::SocketAddr;
-use axum::{Router, routing::get};
 
 #[tokio::main]
 async fn main() {
@@ -48,6 +47,6 @@ async fn main() {
         .unwrap();
 }
 
-async fn health_check() -> &'static str {
-    "OK"
-}
+// async fn health_check() -> &'static str {
+//     "OK"
+// }
