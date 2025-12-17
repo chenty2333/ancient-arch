@@ -1,6 +1,6 @@
 // src/handlers/quiz.rs
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use axum::{Extension, Json, extract::State, response::IntoResponse};
 use sqlx::SqlitePool;
@@ -16,7 +16,7 @@ struct AnswerKey {
 
 // GET /api/quiz/generate
 pub async fn generate_paper(
-    State(pool): State<Arc<SqlitePool>>,
+    State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, AppError> {
     let single_question = sqlx::query_as!(
         Question,
@@ -35,7 +35,7 @@ pub async fn generate_paper(
         LIMIT 6
         "#
     )
-    .fetch_all(&*pool)
+    .fetch_all(&pool)
     .await
     .map_err(|e| {
         tracing::error!("Failed to fetch single question: {:?}", e);
@@ -59,7 +59,7 @@ pub async fn generate_paper(
         LIMIT 4
         "#
     )
-    .fetch_all(&*pool)
+    .fetch_all(&pool)
     .await
     .map_err(|e| {
         tracing::error!("Failed to fetch multiple questions: {:?}", e);
@@ -74,7 +74,7 @@ pub async fn generate_paper(
 }
 
 pub async fn submit_paper(
-    State(pool): State<Arc<SqlitePool>>,
+    State(pool): State<SqlitePool>,
     Extension(claims): Extension<Claims>,
     Json(req): Json<SubmitExamRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -99,7 +99,7 @@ pub async fn submit_paper(
     
     let db_answers: Vec<AnswerKey> = query_builder
         .build_query_as()
-        .fetch_all(&*pool)
+        .fetch_all(&pool)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     
@@ -123,11 +123,17 @@ pub async fn submit_paper(
     let user_id = claims.sub.parse::<i64>().unwrap_or(0);
     
     sqlx::query!(
-        "INSERT INTO exam_records (user_id, score) VALUES (?, ?)",
+        r#"
+        INSERT INTO exam_records (user_id, score) 
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            score = MAX(score, excluded.score),
+            created_at = CURRENT_TIMESTAMP
+        "#,
         user_id,
         total_score
     )
-    .execute(&*pool)
+    .execute(&pool)
     .await
     .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     
@@ -140,7 +146,7 @@ pub async fn submit_paper(
 }
 
 pub async  fn get_leaderboard(
-    State(pool): State<Arc<SqlitePool>>,
+    State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, AppError> {
     let leaderboard = sqlx::query_as!(
         LeaderboardEntry,
@@ -155,7 +161,7 @@ pub async  fn get_leaderboard(
         LIMIT 5
         "#
     )
-    .fetch_all(&*pool)
+    .fetch_all(&pool)
     .await
     .map_err(|e| {
         tracing::error!("Failed to fetch leaderboard: {:?}", e);

@@ -2,13 +2,14 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use axum::{body::Body, http::{Request, StatusCode, header}, middleware::Next, response::Response};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 use crate::{config::Config, error::AppError};
 
 
-#[derive(Debug, Deserialize, Serialize)] 
+#[derive(Debug, Deserialize, Serialize, Clone)] 
 pub struct Claims {
     /// Subject - the username this token belongs to
     pub sub: String,
@@ -52,4 +53,45 @@ pub fn verify_jwt(token: &str) -> Result<Claims, AppError> {
     .map_err(|_| AppError::AuthError("Invalid token".to_string()))?;
     
     Ok(token_data.claims)
+}
+
+pub async fn auth_middleware(
+    mut req: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let auth_header = req.headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    
+    let token = match auth_header {
+        Some(header) if header.starts_with("Bearer ") => {
+            &header[7..]
+        },
+        _ => return Err(StatusCode::UNAUTHORIZED),
+    };
+    
+    match verify_jwt(token) {
+        Ok(claims) => {
+            req.extensions_mut().insert(claims);
+            Ok(next.run(req).await)
+        },
+        Err(_) => {
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
+}
+
+pub async fn admin_middleware(
+    req: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let claims = req.extensions()
+        .get::<Claims>()
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    
+    if claims.role != "admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    
+    Ok(next.run(req).await)
 }
