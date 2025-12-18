@@ -7,7 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 use serde::Deserialize;
-use sqlx::SqlitePool;
+use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
 use crate::{
     error::AppError,
@@ -219,61 +219,65 @@ pub async fn update_architecture(
     Path(id): Path<i64>,
     Json(payload): Json<UpdateArchRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Check existence
-    let _exists = sqlx::query!("SELECT id FROM architectures WHERE id = ?", id)
-        .fetch_optional(&pool)
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))?
-        .ok_or(AppError::NotFound("Architecture not found".to_string()))?;
+    if payload.category.is_none()
+        && payload.name.is_none()
+        && payload.dynasty.is_none()
+        && payload.location.is_none()
+        && payload.description.is_none()
+        && payload.cover_img.is_none()
+        && payload.carousel_imgs.is_none()
+    {
+        return Ok(StatusCode::OK);
+    }
+
+    let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new("UPDATE architectures SET ");
+    let mut separated = builder.separated(", ");
 
     if let Some(category) = payload.category {
-        sqlx::query!("UPDATE architectures SET category = ? WHERE id = ?", category, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("category = ");
+        separated.push_bind_unseparated(category);
     }
 
     if let Some(name) = payload.name {
-        sqlx::query!("UPDATE architectures SET name = ? WHERE id = ?", name, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("name = ");
+        separated.push_bind_unseparated(name);
     }
 
     if let Some(dynasty) = payload.dynasty {
-        sqlx::query!("UPDATE architectures SET dynasty = ? WHERE id = ?", dynasty, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("dynasty = ");
+        separated.push_bind_unseparated(dynasty);
     }
 
     if let Some(location) = payload.location {
-        sqlx::query!("UPDATE architectures SET location = ? WHERE id = ?", location, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("location = ");
+        separated.push_bind_unseparated(location);
     }
 
     if let Some(description) = payload.description {
-        sqlx::query!("UPDATE architectures SET description = ? WHERE id = ?", description, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("description = ");
+        separated.push_bind_unseparated(description);
     }
 
     if let Some(cover_img) = payload.cover_img {
-        sqlx::query!("UPDATE architectures SET cover_img = ? WHERE id = ?", cover_img, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("cover_img = ");
+        separated.push_bind_unseparated(cover_img);
     }
 
     if let Some(carousel_imgs) = payload.carousel_imgs {
-        let imgs_json = sqlx::types::Json(carousel_imgs);
-        sqlx::query!("UPDATE architectures SET carousel_imgs = ? WHERE id = ?", imgs_json, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("carousel_imgs = ");
+        separated.push_bind_unseparated(sqlx::types::Json(carousel_imgs));
+    }
+
+    builder.push(" WHERE id = ");
+    builder.push_bind(id);
+
+    let result = builder.build().execute(&pool).await.map_err(|e| {
+        tracing::error!("Failed to update architecture: {:?}", e);
+        AppError::InternalServerError(e.to_string())
+    })?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Architecture not found".to_string()));
     }
 
     Ok(StatusCode::OK)
@@ -350,47 +354,53 @@ pub async fn update_question(
     Path(id): Path<i64>,
     Json(payload): Json<UpdateQuestionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Check existence
-    let _exists = sqlx::query!("SELECT id FROM questions WHERE id = ?", id)
-        .fetch_optional(&pool)
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))?
-        .ok_or(AppError::NotFound("Question not found".to_string()))?;
+    if payload.question_type.is_none()
+        && payload.content.is_none()
+        && payload.options.is_none()
+        && payload.answer.is_none()
+        && payload.analysis.is_none()
+    {
+        return Ok(StatusCode::OK);
+    }
+
+    let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new("UPDATE questions SET ");
+    let mut separated = builder.separated(", ");
 
     if let Some(q_type) = payload.question_type {
-        sqlx::query!("UPDATE questions SET type = ? WHERE id = ?", q_type, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("type = ");
+        separated.push_bind_unseparated(q_type);
     }
 
     if let Some(content) = payload.content {
-        sqlx::query!("UPDATE questions SET content = ? WHERE id = ?", content, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("content = ");
+        separated.push_bind_unseparated(content);
     }
 
     if let Some(options) = payload.options {
-        let options_json = sqlx::types::Json(options);
-        sqlx::query!("UPDATE questions SET options = ? WHERE id = ?", options_json, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("options = ");
+        separated.push_bind_unseparated(sqlx::types::Json(options));
     }
 
     if let Some(answer) = payload.answer {
-        sqlx::query!("UPDATE questions SET answer = ? WHERE id = ?", answer, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("answer = ");
+        separated.push_bind_unseparated(answer);
     }
 
     if let Some(analysis) = payload.analysis {
-        sqlx::query!("UPDATE questions SET analysis = ? WHERE id = ?", analysis, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        separated.push("analysis = ");
+        separated.push_bind_unseparated(analysis);
+    }
+
+    builder.push(" WHERE id = ");
+    builder.push_bind(id);
+
+    let result = builder.build().execute(&pool).await.map_err(|e| {
+        tracing::error!("Failed to update question: {:?}", e);
+        AppError::InternalServerError(e.to_string())
+    })?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Question not found".to_string()));
     }
 
     Ok(StatusCode::OK)
