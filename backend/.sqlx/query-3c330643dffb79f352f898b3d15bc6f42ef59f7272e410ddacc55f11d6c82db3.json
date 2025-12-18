@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO exam_records (user_id, score)\n        VALUES ($1, $2)\n        ON CONFLICT(user_id) DO UPDATE SET\n            score = CASE WHEN EXCLUDED.score > exam_records.score THEN EXCLUDED.score ELSE exam_records.score END,\n            created_at = CURRENT_TIMESTAMP\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3c330643dffb79f352f898b3d15bc6f42ef59f7272e410ddacc55f11d6c82db3"
+}

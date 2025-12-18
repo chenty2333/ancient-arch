@@ -7,7 +7,8 @@ use axum::{
     response::IntoResponse,
 };
 use serde::Deserialize;
-use sqlx::{QueryBuilder, Sqlite, SqlitePool};
+use sqlx::{QueryBuilder, Postgres, PgPool};
+use validator::Validate;
 
 use crate::{
     error::AppError,
@@ -17,13 +18,13 @@ use crate::{
 
 /// Lists all users in the system.
 /// Admin only.
-pub async fn list_users(State(pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
+pub async fn list_users(State(pool): State<PgPool>) -> Result<impl IntoResponse, AppError> {
     let users = sqlx::query_as!(
         User,
         r#"
         SELECT
         id, username, password, role,
-        created_at as "created_at: String"
+        created_at::TEXT as "created_at: String"
         FROM users
         ORDER BY id DESC
         "#
@@ -39,9 +40,11 @@ pub async fn list_users(State(pool): State<SqlitePool>) -> Result<impl IntoRespo
 }
 
 /// DTO for Admin creating a user (can specify role).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct AdminCreateUserRequest {
+    #[validate(length(min = 3, max = 20, message = "Username length must be between 3 and 20 characters."))]
     pub username: String,
+    #[validate(length(min = 4, max = 20, message = "Password length must be between 4 and 20 characters."))]
     pub password: String,
     pub role: String, // 'user' or 'admin'
 }
@@ -49,15 +52,19 @@ pub struct AdminCreateUserRequest {
 /// Creates a new user with specific role.
 /// Admin only.
 pub async fn create_user(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Json(payload): Json<AdminCreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    if let Err(validation_errors) = payload.validate() {
+        return Err(AppError::BadRequest(validation_errors.to_string()));
+    }
+
     let hashed_password = hash_password(&payload.password)?;
 
     let id = sqlx::query!(
         r#"
         INSERT INTO users (username, password, role)
-        VALUES (?, ?, ?)
+        VALUES ($1, $2, $3)
         RETURNING id
         "#,
         payload.username,
@@ -67,7 +74,7 @@ pub async fn create_user(
     .fetch_one(&pool)
     .await
     .map_err(|e| {
-        if e.to_string().contains("UNIQUE constraint failed") {
+        if e.to_string().contains("unique constraint") || e.to_string().contains("23505") {
             AppError::Conflict(format!("Username '{}' already exists", payload.username))
         } else {
             tracing::error!("Failed to create user: {:?}", e);
@@ -90,12 +97,12 @@ pub struct AdminUpdateUserRequest {
 /// Updates user information.
 /// Admin only.
 pub async fn update_user(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Path(id): Path<i64>,
     Json(payload): Json<AdminUpdateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check existence
-    let _exists = sqlx::query!("SELECT id FROM users WHERE id = ?", id)
+    let _exists = sqlx::query!("SELECT id FROM users WHERE id = $1", id)
         .fetch_optional(&pool)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
@@ -103,14 +110,14 @@ pub async fn update_user(
 
     // Perform updates sequentially if fields are present
     if let Some(new_username) = payload.username {
-        sqlx::query!("UPDATE users SET username = ? WHERE id = ?", new_username, id)
+        sqlx::query!("UPDATE users SET username = $1 WHERE id = $2", new_username, id)
             .execute(&pool)
             .await
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     }
 
     if let Some(new_role) = payload.role {
-        sqlx::query!("UPDATE users SET role = ? WHERE id = ?", new_role, id)
+        sqlx::query!("UPDATE users SET role = $1 WHERE id = $2", new_role, id)
             .execute(&pool)
             .await
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
@@ -118,7 +125,7 @@ pub async fn update_user(
 
     if let Some(new_password) = payload.password {
         let hashed = hash_password(&new_password)?;
-        sqlx::query!("UPDATE users SET password = ? WHERE id = ?", hashed, id)
+        sqlx::query!("UPDATE users SET password = $1 WHERE id = $2", hashed, id)
             .execute(&pool)
             .await
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
@@ -130,7 +137,7 @@ pub async fn update_user(
 /// Deletes a user by ID.
 /// Admin only. Prevents deleting self.
 pub async fn delete_user(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Extension(claims): Extension<Claims>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -140,7 +147,7 @@ pub async fn delete_user(
         return Err(AppError::BadRequest("Cannot delete yourself".to_string()));
     }
 
-    let result = sqlx::query!("DELETE FROM users WHERE id = ?", id)
+    let result = sqlx::query!("DELETE FROM users WHERE id = $1", id)
         .execute(&pool)
         .await
         .map_err(|e| {
@@ -169,16 +176,16 @@ pub struct CreateArchRequest {
 /// Creates a new architecture entry.
 /// Admin only.
 pub async fn create_architecture(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Json(payload): Json<CreateArchRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let carousel_imgs_json = sqlx::types::Json(payload.carousel_imgs);
+    let carousel_imgs_json = serde_json::to_value(payload.carousel_imgs).unwrap_or_default();
 
     let id = sqlx::query!(
         r#"
         INSERT INTO architectures
         (category, name, dynasty, location, description, cover_img, carousel_imgs)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
         "#,
         payload.category,
@@ -215,7 +222,7 @@ pub struct UpdateArchRequest {
 /// Updates an architecture entry by ID.
 /// Admin only.
 pub async fn update_architecture(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Path(id): Path<i64>,
     Json(payload): Json<UpdateArchRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -230,7 +237,7 @@ pub async fn update_architecture(
         return Ok(StatusCode::OK);
     }
 
-    let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new("UPDATE architectures SET ");
+    let mut builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE architectures SET ");
     let mut separated = builder.separated(", ");
 
     if let Some(category) = payload.category {
@@ -265,7 +272,7 @@ pub async fn update_architecture(
 
     if let Some(carousel_imgs) = payload.carousel_imgs {
         separated.push("carousel_imgs = ");
-        separated.push_bind_unseparated(sqlx::types::Json(carousel_imgs));
+        separated.push_bind_unseparated(serde_json::to_value(carousel_imgs).unwrap_or_default());
     }
 
     builder.push(" WHERE id = ");
@@ -286,10 +293,10 @@ pub async fn update_architecture(
 /// Deletes an architecture entry by ID.
 /// Admin only.
 pub async fn delete_architecture(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, AppError> {
-    let result = sqlx::query!("DELETE FROM architectures WHERE id = ?", id)
+    let result = sqlx::query!("DELETE FROM architectures WHERE id = $1", id)
         .execute(&pool)
         .await
         .map_err(|e| {
@@ -307,17 +314,17 @@ pub async fn delete_architecture(
 /// Creates a new quiz question.
 /// Admin only.
 pub async fn create_question(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Json(payload): Json<CreateQuestionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // Serialize options as JSON
-    let options_json = sqlx::types::Json(payload.options);
+    let options_json = serde_json::to_value(payload.options).unwrap_or_default();
 
     let id = sqlx::query!(
         r#"
         INSERT INTO questions
         (type, content, options, answer, analysis)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id
         "#,
         payload.question_type,
@@ -350,7 +357,7 @@ pub struct UpdateQuestionRequest {
 /// Updates a question by ID.
 /// Admin only.
 pub async fn update_question(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Path(id): Path<i64>,
     Json(payload): Json<UpdateQuestionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -363,7 +370,7 @@ pub async fn update_question(
         return Ok(StatusCode::OK);
     }
 
-    let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new("UPDATE questions SET ");
+    let mut builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE questions SET ");
     let mut separated = builder.separated(", ");
 
     if let Some(q_type) = payload.question_type {
@@ -378,7 +385,7 @@ pub async fn update_question(
 
     if let Some(options) = payload.options {
         separated.push("options = ");
-        separated.push_bind_unseparated(sqlx::types::Json(options));
+        separated.push_bind_unseparated(serde_json::to_value(options).unwrap_or_default());
     }
 
     if let Some(answer) = payload.answer {
@@ -409,10 +416,10 @@ pub async fn update_question(
 /// Deletes a quiz question by ID.
 /// Admin only.
 pub async fn delete_question(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, AppError> {
-    let result = sqlx::query!("DELETE FROM questions WHERE id = ?", id)
+    let result = sqlx::query!("DELETE FROM questions WHERE id = $1", id)
         .execute(&pool)
         .await
         .map_err(|e| {

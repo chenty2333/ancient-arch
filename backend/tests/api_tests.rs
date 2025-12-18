@@ -1,19 +1,25 @@
 // tests/api_tests.rs
 
 use backend::routes;
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::postgres::PgPoolOptions;
 use std::net::TcpListener;
 
 /// Helper function to spawn the app on a random port for testing.
 /// Returns the base URL (e.g., "http://127.0.0.1:12345").
 async fn spawn_app() -> String {
-    // 1. Create an in-memory database for isolation
-    let pool = SqlitePoolOptions::new()
-        .connect("sqlite::memory:")
-        .await
-        .expect("Failed to connect to memory db");
+    // Note: For Postgres, you must have a running database.
+    // We'll read from DATABASE_URL environment variable.
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://user:password@localhost:5432/ancient_arch_test".to_string());
 
-    // 2. Run migrations to ensure the schema exists
+    // 1. Create a pool
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&database_url)
+        .await
+        .expect("Failed to connect to Postgres for testing. Make sure DATABASE_URL is set.");
+
+    // 2. Run migrations
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
@@ -60,12 +66,13 @@ async fn register_works() {
     // Arrange
     let address = spawn_app().await;
     let client = reqwest::Client::new();
+    let unique_name = format!("user_{}", uuid::Uuid::new_v4());
 
     // Act
     let response = client
         .post(&format!("{}/api/auth/register", address))
         .json(&serde_json::json!({
-            "username": "testuser",
+            "username": unique_name,
             "password": "password123"
         }))
         .send()

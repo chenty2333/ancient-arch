@@ -6,7 +6,7 @@ use axum::{
     response::IntoResponse,
 };
 use serde::Deserialize;
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
 use crate::{error::AppError, models::architecture::Architecture};
 
@@ -18,16 +18,16 @@ pub struct ListParams {
 
 /// Lists all architectures, optionally filtered by category.
 pub async fn list_architectures(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Query(params): Query<ListParams>,
 ) -> Result<impl IntoResponse, AppError> {
     let architectures = if let Some(cat) = params.category {
         sqlx::query_as!(
             Architecture,
             r#"
-            SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as "carousel_imgs:sqlx::types::Json<Vec<String>>"
+                        SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as "carousel_imgs: sqlx::types::Json<Vec<String>>"
             FROM architectures
-            WHERE category = ?
+            WHERE category = $1
             "#,
             cat
         )
@@ -37,7 +37,7 @@ pub async fn list_architectures(
         sqlx::query_as!(
             Architecture,
             r#"
-            SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as "carousel_imgs:sqlx::types::Json<Vec<String>>"
+                        SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as "carousel_imgs: sqlx::types::Json<Vec<String>>"
             FROM architectures
             "#
         )
@@ -50,15 +50,15 @@ pub async fn list_architectures(
 
 /// Retrieves a single architecture by ID.
 pub async fn get_architecture(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, AppError> {
     let architecture = sqlx::query_as!(
         Architecture,
         r#"
-        SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as "carousel_imgs:sqlx::types::Json<Vec<String>>"
+                    SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as "carousel_imgs: sqlx::types::Json<Vec<String>>"
         FROM architectures
-        WHERE id = ?
+        WHERE id = $1
         "#,
         id
     )

@@ -10,7 +10,7 @@ tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
 
 tokio = { version = "1", features = ["full"] }
 
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "tls-native-tls"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "tls-native-tls"] }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -25,3 +25,13 @@ dotenvy = "0.15"
 
 utoipa = { version = "5", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "8", features = ["axum"] }
+validator = { version = "0.20.0", features = ["derive"] }
+tower_governor = "0.8.0"
+tracing-appender = "0.2.4"
+
+[dev-dependencies]
+reqwest = { version = "0.12.26", features = ["json"] }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+uuid = { version = "1.19.0", features = ["v4"] }

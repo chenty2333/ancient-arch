@@ -5,7 +5,7 @@ use std::sync::Arc;
 use axum::{
     Router, http::Method, middleware, routing::{delete, get, post, put}
 };
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
@@ -19,7 +19,7 @@ use crate::{
 /// * Merges all sub-routers (auth, architecture, quiz, admin).
 /// * Applies global middleware (Trace, CORS).
 /// * Injects global state (Database Pool).
-pub fn create_router(pool: SqlitePool) -> Router {
+pub fn create_router(pool: PgPool) -> Router {
     let origins = [
         "http://localhost:3000".parse().unwrap(),
         "http://127.0.0.1:3000".parse().unwrap(),

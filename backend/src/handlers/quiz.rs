@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use axum::{Extension, Json, extract::State, response::IntoResponse};
-use sqlx::SqlitePool;
+use sqlx::{PgPool, Postgres};
 
 use crate::{
     error::AppError,
@@ -27,7 +27,7 @@ struct AnswerKey {
 /// Selects 6 random single-choice questions and 4 random multiple-choice questions.
 /// Returns the questions without the correct answers (hidden by DTO if implemented, currently raw).
 /// Note: In a production app, we should use a DTO to hide `answer` field.
-pub async fn generate_paper(State(pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
+pub async fn generate_paper(State(pool): State<PgPool>) -> Result<impl IntoResponse, AppError> {
     let single_question = sqlx::query_as!(
         Question,
         r#"
@@ -38,7 +38,7 @@ pub async fn generate_paper(State(pool): State<SqlitePool>) -> Result<impl IntoR
             options as "options: sqlx::types::Json<Vec<String>>",
             answer,
             analysis,
-            created_at as "created_at: String"
+            created_at::TEXT as "created_at: String"
         FROM questions
         WHERE type = 'single'
         ORDER BY RANDOM()
@@ -62,7 +62,7 @@ pub async fn generate_paper(State(pool): State<SqlitePool>) -> Result<impl IntoR
             options as "options: sqlx::types::Json<Vec<String>>",
             answer,
             analysis,
-            created_at as "created_at: String"
+            created_at::TEXT as "created_at: String"
         FROM questions
         WHERE type = 'multiple'
         ORDER BY RANDOM()
@@ -90,7 +90,7 @@ pub async fn generate_paper(State(pool): State<SqlitePool>) -> Result<impl IntoR
 /// * Calculates score (10 points per correct answer).
 /// * Saves or updates the result (Upsert) in `exam_records`.
 pub async fn submit_paper(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Extension(claims): Extension<Claims>,
     Json(req): Json<SubmitExamRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -101,7 +101,7 @@ pub async fn submit_paper(
     }
 
     // Use QueryBuilder for dynamic IN clause
-    let mut query_builder = sqlx::QueryBuilder::new(
+    let mut query_builder = sqlx::QueryBuilder::<Postgres>::new(
         "SELECT
             id,
             answer,
@@ -141,9 +141,9 @@ pub async fn submit_paper(
     sqlx::query!(
         r#"
         INSERT INTO exam_records (user_id, score)
-        VALUES (?, ?)
+        VALUES ($1, $2)
         ON CONFLICT(user_id) DO UPDATE SET
-            score = CASE WHEN excluded.score > exam_records.score THEN excluded.score ELSE exam_records.score END,
+            score = CASE WHEN EXCLUDED.score > exam_records.score THEN EXCLUDED.score ELSE exam_records.score END,
             created_at = CURRENT_TIMESTAMP
         "#,
         user_id,
@@ -166,7 +166,7 @@ pub async fn submit_paper(
 
 /// Retrieves the top 5 high scores from the leaderboard.
 pub async fn get_leaderboard(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
 ) -> Result<impl IntoResponse, AppError> {
     let leaderboard = sqlx::query_as!(
         LeaderboardEntry,
@@ -174,7 +174,7 @@ pub async fn get_leaderboard(
         SELECT
             u.username,
             e.score,
-            CAST(e.created_at AS TEXT) as "created_at: String"
+            e.created_at::TEXT as "created_at: String"
         FROM exam_records e
         JOIN users u ON e.user_id = u.id
         ORDER BY e.score DESC

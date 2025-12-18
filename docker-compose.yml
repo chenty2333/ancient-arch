@@ -1,0 +1,33 @@
+services:
+  # === Database Service ===
+  db:
+    image: postgres:16-alpine
+    container_name: ancient_arch_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-ancient_arch}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # Exposed for debugging, can remove in production
+
+  # === Backend Service ===
+  app:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ancient_arch_backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-ancient_arch}
+      RUST_LOG: ${RUST_LOG:-info}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-this-in-production}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

@@ -3,7 +3,7 @@
 use backend::config::Config;
 use backend::routes;
 use dotenvy::dotenv;
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, fmt};
 
@@ -37,7 +37,7 @@ async fn main() {
         .init();
 
     // Initialize Database Pool
-    let pool = SqlitePoolOptions::new()
+    let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&config.database_url)
         .await

@@ -1,0 +1,18 @@
+# Ignore build artifacts (Windows builds cannot run in Linux anyway)
+target/
+
+# Ignore local environment config (Docker uses env vars from docker-compose)
+.env
+.env.example
+
+# Ignore git metadata
+.git
+.gitignore
+
+# Ignore documentation and other non-code assets
+docs/
+README.md
+
+# Ignore the sqlx database file (if using sqlite locally)
+*.db
+*.db-*

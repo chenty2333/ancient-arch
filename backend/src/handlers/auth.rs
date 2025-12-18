@@ -2,7 +2,7 @@
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde_json::json;
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use validator::Validate;
 
 use crate::{
@@ -19,7 +19,7 @@ use crate::{
 /// Hashes the password using Argon2 before storing it.
 /// Returns 201 Created and the user object (excluding password).
 pub async fn register(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     if let Err(validation_errors) = payload.validate() {
@@ -33,7 +33,7 @@ pub async fn register(
         r#"
         INSERT INTO users (username, password)
         VALUES ($1, $2)
-        RETURNING id, username, password, role, created_at as "created_at: String"
+        RETURNING id, username, password, role, created_at::TEXT as "created_at: String"
         "#,
         payload.username,
         hashed_password
@@ -41,7 +41,8 @@ pub async fn register(
     .fetch_one(&pool)
     .await
     .map_err(|e| {
-        if e.to_string().contains("UNIQUE constraint failed") {
+        // Postgres error code for unique violation is 23505
+        if e.to_string().contains("unique constraint") || e.to_string().contains("23505") {
             AppError::Conflict(format!("Username '{}' already exists", payload.username))
         } else {
             tracing::error!("Failed to register user: {:?}", e);
@@ -57,7 +58,7 @@ pub async fn register(
 /// Verifies the username and password against the database.
 /// If valid, signs a JWT token with the user's ID and role.
 pub async fn login(
-    State(pool): State<SqlitePool>,
+    State(pool): State<PgPool>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let user = sqlx::query_as!(
@@ -68,7 +69,7 @@ pub async fn login(
             username, 
             password, 
             role, 
-            created_at as "created_at: String"
+            created_at::TEXT as "created_at: String"
         FROM users
         WHERE username = $1
         "#,
