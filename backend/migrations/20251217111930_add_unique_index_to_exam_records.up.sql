@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX idx_exam_records_user_id ON exam_records(user_id);

@@ -1,0 +1,1 @@
+DROP INDEX idx_exam_records_user_id;

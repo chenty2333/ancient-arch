@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS exam_records;
+DROP TABLE IF EXISTS questions;
