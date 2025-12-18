@@ -3,6 +3,7 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use sqlx::SqlitePool;
+use validator::Validate;
 
 use crate::{
     error::AppError,
@@ -21,6 +22,10 @@ pub async fn register(
     State(pool): State<SqlitePool>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    if let Err(validation_errors) = payload.validate() {
+        return Err(AppError::BadRequest(validation_errors.to_string()));
+    }
+    
     let hashed_password = hash_password(&payload.password)?;
 
     let user = sqlx::query_as!(
