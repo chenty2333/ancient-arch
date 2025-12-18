@@ -3,14 +3,20 @@
 use dotenvy::dotenv;
 use std::env;
 
+/// Application configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct Config {
+    /// Database connection string (SQLite).
     pub database_url: String,
+    /// Secret key for signing JWTs.
     pub jwt_secret: String,
+    /// Logging level (e.g., "info", "debug").
     pub rust_log: String,
 }
 
 impl Config {
+    /// Loads configuration from `.env` file and environment variables.
+    /// Panics if required variables are missing.
     pub fn from_env() -> Self {
         dotenv().ok();
 

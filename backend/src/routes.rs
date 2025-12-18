@@ -12,6 +12,11 @@ use crate::{
     utils::jwt::{admin_middleware, auth_middleware},
 };
 
+/// Assembles the main application router.
+///
+/// * Merges all sub-routers (auth, architecture, quiz, admin).
+/// * Applies global middleware (Trace, CORS).
+/// * Injects global state (Database Pool).
 pub fn create_router(pool: SqlitePool) -> Router {
     let auth_routes = Router::new()
         .route("/register", post(auth::register))
@@ -24,6 +29,7 @@ pub fn create_router(pool: SqlitePool) -> Router {
     let quiz_routes = Router::new()
         .route("/generate", get(quiz::generate_paper))
         .route("/leaderboard", get(quiz::get_leaderboard))
+        // Protected quiz routes
         .merge(
             Router::new()
                 .route("/submit", post(quiz::submit_paper))
@@ -34,6 +40,7 @@ pub fn create_router(pool: SqlitePool) -> Router {
         .route("/users", get(admin::list_users))
         .route("/architectures", post(admin::create_architecture))
         .route("/architectures/{id}", delete(admin::delete_architecture))
+        // Double middleware protection: Auth first, then Admin check
         .layer(middleware::from_fn(admin_middleware))
         .layer(middleware::from_fn(auth_middleware));
 
@@ -42,6 +49,7 @@ pub fn create_router(pool: SqlitePool) -> Router {
         .nest("/api/architectures", architecture_routes)
         .nest("/api/quiz", quiz_routes)
         .nest("/api/admin", admin_routes)
+        // Global Middleware (applied from outside in)
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(pool)

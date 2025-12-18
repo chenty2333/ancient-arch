@@ -3,24 +3,33 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, types::Json};
 
+/// Represents the 'questions' table in the database.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Question {
     pub id: i64,
 
+    /// Question type: 'single' (single choice) or 'multiple' (multiple choice).
+    /// Mapped from the database column 'type' since `type` is a reserved keyword in Rust.
     #[sqlx(rename = "type")]
     pub question_type: String,
 
+    /// The text content of the question.
     pub content: String,
 
+    /// List of options (e.g., ["Option A", "Option B"]).
+    /// Stored as a JSON array in the database.
     pub options: Json<Vec<String>>,
 
+    /// The correct answer key or content.
     pub answer: String,
 
+    /// Explanation or analysis of the correct answer.
     pub analysis: Option<String>,
 
     pub created_at: Option<String>,
 }
 
+/// DTO for creating a new question.
 #[derive(Debug, Deserialize)]
 pub struct CreateQuestionRequest {
     pub question_type: String,

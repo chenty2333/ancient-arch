@@ -13,6 +13,10 @@ use crate::{
     },
 };
 
+/// Registers a new user.
+///
+/// Hashes the password using Argon2 before storing it.
+/// Returns 201 Created and the user object (excluding password).
 pub async fn register(
     State(pool): State<SqlitePool>,
     Json(payload): Json<CreateUserRequest>,
@@ -43,6 +47,10 @@ pub async fn register(
     Ok((StatusCode::CREATED, Json(user)))
 }
 
+/// Authenticates a user and returns a JWT token.
+///
+/// Verifies the username and password against the database.
+/// If valid, signs a JWT token with the user's ID and role.
 pub async fn login(
     State(pool): State<SqlitePool>,
     Json(payload): Json<CreateUserRequest>,
@@ -59,7 +67,6 @@ pub async fn login(
         FROM users
         WHERE username = $1
         "#,
-        // "SELECT * FROM users WHERE username = $1",
         payload.username
     )
     .fetch_optional(&pool)

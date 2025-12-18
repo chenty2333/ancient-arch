@@ -6,9 +6,12 @@ use argon2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 
+/// Hashes a password using Argon2 algorithm.
+///
+/// Returns a hashed string that includes the salt and algorithm parameters.
 pub fn hash_password(password: &str) -> Result<String, AppError> {
     // Generate a random 128-bit salt.
-    // Salt prevents rainbow table attacks by ensuring identical passwaors
+    // Salt prevents rainbow table attacks by ensuring identical passwords
     // result in different hashes.
     let salt = SaltString::generate(&mut OsRng);
 
@@ -22,6 +25,9 @@ pub fn hash_password(password: &str) -> Result<String, AppError> {
     Ok(password_hash)
 }
 
+/// Verifies a password against a stored hash.
+///
+/// Returns true if the password matches the hash, false otherwise.
 pub fn verify_password(password: &str, password_hash: &str) -> Result<bool, AppError> {
     let parsed_hash = PasswordHash::new(password_hash)
         .map_err(|e| AppError::InternalServerError(e.to_string()))?;

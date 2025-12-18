@@ -10,11 +10,13 @@ use sqlx::SqlitePool;
 
 use crate::{error::AppError, models::architecture::Architecture};
 
+/// Query parameters for listing architectures.
 #[derive(Debug, Deserialize)]
 pub struct ListParams {
     pub category: Option<String>,
 }
 
+/// Lists all architectures, optionally filtered by category.
 pub async fn list_architectures(
     State(pool): State<SqlitePool>,
     Query(params): Query<ListParams>,
@@ -46,6 +48,7 @@ pub async fn list_architectures(
     Ok(Json(architectures))
 }
 
+/// Retrieves a single architecture by ID.
 pub async fn get_architecture(
     State(pool): State<SqlitePool>,
     Path(id): Path<i64>,

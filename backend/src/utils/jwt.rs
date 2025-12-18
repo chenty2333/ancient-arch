@@ -13,16 +13,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::{config::Config, error::AppError};
 
+/// JWT Claims structure.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Claims {
-    /// Subject - the username this token belongs to
+    /// Subject - Stores the User ID (as string).
     pub sub: String,
-    /// User's role
+    /// User's role (e.g., 'user', 'admin').
     pub role: String,
-    /// Expriation time as Unix timestamp
+    /// Expiration time as Unix timestamp.
     pub exp: usize,
 }
 
+/// Signs a new JWT for the user.
+///
+/// Arguments:
+/// * `id`: User ID.
+/// * `role`: User role.
 pub fn sign_jwt(id: i64, _username: &str, role: &str) -> Result<String, AppError> {
     let config = Config::from_env();
 
@@ -34,7 +40,7 @@ pub fn sign_jwt(id: i64, _username: &str, role: &str) -> Result<String, AppError
         + 60 * 60;
 
     let claims = Claims {
-        sub: id.to_string(),
+        sub: id.to_string(), // Store User ID in 'sub' claim
         role: role.to_owned(),
         exp: expiration,
     };
@@ -47,6 +53,9 @@ pub fn sign_jwt(id: i64, _username: &str, role: &str) -> Result<String, AppError
     .map_err(|e| AppError::InternalServerError(e.to_string()))
 }
 
+/// Verifies and decodes a JWT string.
+///
+/// Returns the `Claims` if valid, otherwise returns an `AppError`.
 pub fn verify_jwt(token: &str) -> Result<Claims, AppError> {
     let config = Config::from_env();
 
@@ -60,6 +69,11 @@ pub fn verify_jwt(token: &str) -> Result<Claims, AppError> {
     Ok(token_data.claims)
 }
 
+/// Axum Middleware: Authentication.
+///
+/// Intercepts requests, validates the 'Authorization: Bearer <token>' header.
+/// If valid, injects `Claims` into the request extensions for handlers to use.
+/// If invalid, returns 401 Unauthorized.
 pub async fn auth_middleware(mut req: Request<Body>, next: Next) -> Result<Response, StatusCode> {
     let auth_header = req
         .headers()
@@ -80,6 +94,10 @@ pub async fn auth_middleware(mut req: Request<Body>, next: Next) -> Result<Respo
     }
 }
 
+/// Axum Middleware: Admin Authorization.
+///
+/// Must be used AFTER `auth_middleware`. Checks if the injected `Claims` has 'admin' role.
+/// If not, returns 403 Forbidden.
 pub async fn admin_middleware(req: Request<Body>, next: Next) -> Result<Response, StatusCode> {
     let claims = req
         .extensions()

@@ -14,6 +14,7 @@ use crate::{
     utils::jwt::Claims,
 };
 
+/// Helper struct for fetching answer keys from the database.
 #[derive(sqlx::FromRow)]
 struct AnswerKey {
     id: i64,
@@ -21,7 +22,11 @@ struct AnswerKey {
     question_type: String,
 }
 
-// GET /api/quiz/generate
+/// Generates a random quiz paper.
+///
+/// Selects 6 random single-choice questions and 4 random multiple-choice questions.
+/// Returns the questions without the correct answers (hidden by DTO if implemented, currently raw).
+/// Note: In a production app, we should use a DTO to hide `answer` field.
 pub async fn generate_paper(State(pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
     let single_question = sqlx::query_as!(
         Question,
@@ -78,6 +83,12 @@ pub async fn generate_paper(State(pool): State<SqlitePool>) -> Result<impl IntoR
     Ok(Json(paper))
 }
 
+/// Submits a user's exam answers and calculates the score.
+///
+/// * Validates the token and extracts User ID.
+/// * Compares user answers with database records.
+/// * Calculates score (10 points per correct answer).
+/// * Saves or updates the result (Upsert) in `exam_records`.
 pub async fn submit_paper(
     State(pool): State<SqlitePool>,
     Extension(claims): Extension<Claims>,
@@ -89,6 +100,7 @@ pub async fn submit_paper(
         return Err(AppError::BadRequest("No answers submitted".to_string()));
     }
 
+    // Use QueryBuilder for dynamic IN clause
     let mut query_builder = sqlx::QueryBuilder::new(
         "SELECT
             id,
@@ -115,6 +127,7 @@ pub async fn submit_paper(
 
     for (q_id, user_ans) in &req.answers {
         if let Some(correct) = db_map.get(q_id) {
+            // Simple strict string matching
             if user_ans == &correct.answer {
                 total_score += 10;
                 correct_count += 1;
@@ -124,6 +137,7 @@ pub async fn submit_paper(
 
     let user_id = claims.sub.parse::<i64>().unwrap_or(0);
 
+    // Upsert: keep the highest score if user retakes the exam
     sqlx::query!(
         r#"
         INSERT INTO exam_records (user_id, score)
@@ -150,6 +164,7 @@ pub async fn submit_paper(
     })))
 }
 
+/// Retrieves the top 5 high scores from the leaderboard.
 pub async fn get_leaderboard(
     State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, AppError> {

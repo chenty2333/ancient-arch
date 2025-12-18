@@ -7,24 +7,28 @@ use axum::{
 };
 use serde_json::json;
 
+/// Global Application Error Enum.
+/// Centralizes error handling and mapping to HTTP responses.
 #[derive(Debug)]
 pub enum AppError {
-    // 500
+    // 500 Internal Server Error
     InternalServerError(String),
 
-    // 400
+    // 400 Bad Request
     BadRequest(String),
 
-    // 401
+    // 401 Unauthorized
     AuthError(String),
 
-    // 404
+    // 404 Not Found
     NotFound(String),
 
-    // 409
+    // 409 Conflict (e.g., duplicate username)
     Conflict(String),
 }
 
+/// Implements `IntoResponse` for `AppError`.
+/// Converts the error into a JSON response with appropriate HTTP status code.
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
@@ -42,6 +46,8 @@ impl IntoResponse for AppError {
     }
 }
 
+/// Converts `sqlx::Error` into `AppError::InternalServerError`.
+/// Allows using `?` operator on database queries.
 impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
         AppError::InternalServerError(err.to_string())

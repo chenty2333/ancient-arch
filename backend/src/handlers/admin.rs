@@ -11,6 +11,8 @@ use sqlx::SqlitePool;
 
 use crate::{error::AppError, models::user::User};
 
+/// Lists all users in the system.
+/// Admin only.
 pub async fn list_users(State(pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
     let users = sqlx::query_as!(
         User,
@@ -32,6 +34,7 @@ pub async fn list_users(State(pool): State<SqlitePool>) -> Result<impl IntoRespo
     Ok(Json(users))
 }
 
+/// DTO for creating a new architecture entry.
 #[derive(Debug, Deserialize)]
 pub struct CreateArchRequest {
     pub category: String,
@@ -43,6 +46,8 @@ pub struct CreateArchRequest {
     pub carousel_imgs: Vec<String>,
 }
 
+/// Creates a new architecture entry.
+/// Admin only.
 pub async fn create_architecture(
     State(pool): State<SqlitePool>,
     Json(payload): Json<CreateArchRequest>,
@@ -75,6 +80,8 @@ pub async fn create_architecture(
     Ok((StatusCode::CREATED, Json(serde_json::json!({"id": id}))))
 }
 
+/// Deletes an architecture entry by ID.
+/// Admin only.
 pub async fn delete_architecture(
     State(pool): State<SqlitePool>,
     Path(id): Path<i64>,
