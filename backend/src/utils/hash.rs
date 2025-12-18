@@ -1,10 +1,10 @@
 // src/utils/hash.rs
 
+use crate::error::AppError;
 use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
-use crate::error::AppError;
 
 pub fn hash_password(password: &str) -> Result<String, AppError> {
     // Generate a random 128-bit salt.

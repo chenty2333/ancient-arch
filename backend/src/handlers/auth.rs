@@ -35,6 +35,7 @@ pub async fn register(
         if e.to_string().contains("UNIQUE constraint failed") {
             AppError::Conflict(format!("Username '{}' already exists", payload.username))
         } else {
+            tracing::error!("Failed to register user: {:?}", e);
             AppError::from(e)
         }
     })?;
@@ -63,7 +64,10 @@ pub async fn login(
     )
     .fetch_optional(&pool)
     .await
-    .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+    .map_err(|e| {
+        tracing::error!("Login DB error: {:?}", e);
+        AppError::InternalServerError(e.to_string())
+    })?;
 
     let user = user.ok_or(AppError::AuthError("User not found".to_string()))?;
 
@@ -73,7 +77,7 @@ pub async fn login(
         return Err(AppError::AuthError("Invalid password".to_string()));
     }
 
-    let token = sign_jwt(&user.username, &user.role)?;
+    let token = sign_jwt(user.id, &user.username, &user.role)?;
 
     Ok(Json(json!({
         "token": token,

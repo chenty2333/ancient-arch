@@ -1,15 +1,17 @@
 // src/handlers/admin.rs
 
-use axum::{Json, extract::{Path, State}, http::StatusCode, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+};
 use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::{error::AppError, models::user::User};
 
-
-pub async fn list_users(
-    State(pool): State<SqlitePool>,
-) -> Result<impl IntoResponse, AppError> {
+pub async fn list_users(State(pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
     let users = sqlx::query_as!(
         User,
         r#"
@@ -22,8 +24,11 @@ pub async fn list_users(
     )
     .fetch_all(&pool)
     .await
-    .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-    
+    .map_err(|e| {
+        tracing::error!("Failed to list users: {:?}", e);
+        AppError::InternalServerError(e.to_string())
+    })?;
+
     Ok(Json(users))
 }
 
@@ -43,7 +48,7 @@ pub async fn create_architecture(
     Json(payload): Json<CreateArchRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let carousel_imgs_json = sqlx::types::Json(payload.carousel_imgs);
-    
+
     let id = sqlx::query!(
         r#"
         INSERT INTO architectures
@@ -61,27 +66,30 @@ pub async fn create_architecture(
     )
     .fetch_one(&pool)
     .await
-    .map_err(|e| AppError::InternalServerError(e.to_string()))?
+    .map_err(|e| {
+        tracing::error!("Failed to create architecture: {:?}", e);
+        AppError::InternalServerError(e.to_string())
+    })?
     .id;
-    
+
     Ok((StatusCode::CREATED, Json(serde_json::json!({"id": id}))))
 }
 
-pub async  fn delete_architecture(
+pub async fn delete_architecture(
     State(pool): State<SqlitePool>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, AppError> {
-    let result = sqlx::query!(
-        "DELETE FROM architectures WHERE id = ?",
-        id
-    )
-    .execute(&pool)
-    .await
-    .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-    
+    let result = sqlx::query!("DELETE FROM architectures WHERE id = ?", id)
+        .execute(&pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to delete architecture: {:?}", e);
+            AppError::InternalServerError(e.to_string())
+        })?;
+
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound("Architecture not found".to_string()));
     }
-    
+
     Ok(StatusCode::NO_CONTENT)
 }

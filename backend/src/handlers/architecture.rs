@@ -62,6 +62,6 @@ pub async fn get_architecture(
     .fetch_optional(&pool)
     .await?
     .ok_or(AppError::NotFound("Architecture not found".to_string()))?;
-    
+
     Ok(Json(architecture))
 }
