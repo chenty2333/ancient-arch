@@ -2,7 +2,7 @@
 
 use axum::{
     Router, middleware,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
 };
 use sqlx::SqlitePool;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
@@ -37,9 +37,12 @@ pub fn create_router(pool: SqlitePool) -> Router {
         );
 
     let admin_routes = Router::new()
-        .route("/users", get(admin::list_users))
+        .route("/users", get(admin::list_users).post(admin::create_user))
+        .route("/users/{id}", put(admin::update_user).delete(admin::delete_user))
         .route("/architectures", post(admin::create_architecture))
-        .route("/architectures/{id}", delete(admin::delete_architecture))
+        .route("/architectures/{id}", delete(admin::delete_architecture).put(admin::update_architecture))
+        .route("/questions", post(admin::create_question))
+        .route("/questions/{id}", delete(admin::delete_question).put(admin::update_question))
         // Double middleware protection: Auth first, then Admin check
         .layer(middleware::from_fn(admin_middleware))
         .layer(middleware::from_fn(auth_middleware));
