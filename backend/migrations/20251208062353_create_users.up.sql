@@ -6,9 +6,9 @@
 -- created_at: 记录注册时间，默认为当前时间
 
 CREATE TABLE IF NOT EXISTS users (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id          BIGSERIAL PRIMARY KEY,
     username    TEXT NOT NULL UNIQUE,
     password    TEXT NOT NULL,
     role        TEXT NOT NULL DEFAULT 'user',
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

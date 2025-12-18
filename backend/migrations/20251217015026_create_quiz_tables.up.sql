@@ -1,19 +1,19 @@
 -- Create questions table
 CREATE TABLE IF NOT EXISTS questions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id          BIGSERIAL PRIMARY KEY,
     type        TEXT NOT NULL,          -- 'single', 'multiple'
     content     TEXT NOT NULL,
-    options     JSON NOT NULL,          -- JSON Array
+    options     JSONB NOT NULL,          -- JSONB Array
     answer      TEXT NOT NULL,          -- Correct answer
     analysis    TEXT,                   -- Explanation
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create exam_records table
 CREATE TABLE IF NOT EXISTS exam_records (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id     INTEGER NOT NULL,
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL UNIQUE, -- Use unique for upsert logic if needed, or index
     score       INTEGER NOT NULL,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
