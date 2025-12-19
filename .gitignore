@@ -9,6 +9,15 @@ Thumbs.db
 
 # Local environment
 .env
+.env.*
+
+# Nginx Certificates (Production)
+nginx/certs/*.pem
+nginx/certs/*.key
+nginx/certs/*.crt
+
+# Docker logs
+logs/
 
 # Rust build artifacts
 backend/target/

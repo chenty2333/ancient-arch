@@ -8,6 +8,7 @@ use dotenvy::dotenv;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
+use std::time::Duration;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -19,13 +20,9 @@ async fn main() {
     let config = Config::from_env();
 
     let file_appender = tracing_appender::rolling::daily("logs", "app.log");
-
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-
     let env_filter = EnvFilter::new(&config.rust_log);
-
     let stdout_layer = fmt::layer().with_writer(std::io::stdout).with_target(false);
-
     let file_layer = fmt::layer().with_writer(non_blocking).with_ansi(false);
 
     // Initialize Tracing (Logging)
@@ -35,14 +32,36 @@ async fn main() {
         .with(file_layer)
         .init();
 
-    // Initialize Database Pool
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&config.database_url)
-        .await
-        .expect("Failed to connect to database");
+    // Initialize Database Pool with Retry
+    let mut retry_count = 0;
+    let pool = loop {
+        match PgPoolOptions::new()
+            .max_connections(5)
+            .acquire_timeout(Duration::from_secs(3))
+            .connect(&config.database_url)
+            .await
+        {
+            Ok(pool) => break pool,
+            Err(e) => {
+                retry_count += 1;
+                if retry_count > 5 {
+                    panic!("Failed to connect to database after 5 retries: {}", e);
+                }
+                tracing::warn!("Database not ready, retrying in 2s... (Attempt {})", retry_count);
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
+        }
+    };
 
     tracing::info!("Database connected...");
+
+    // Run Migrations Automatically
+    tracing::info!("Running migrations...");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run database migrations");
+    tracing::info!("Migrations applied successfully.");
 
     // Seed Admin User
     if let Err(e) = seed_admin_user(&pool, &config).await {
