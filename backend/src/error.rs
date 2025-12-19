@@ -6,6 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde_json::json;
+use std::fmt;
 
 /// Global Application Error Enum.
 /// Centralizes error handling and mapping to HTTP responses.
@@ -27,12 +28,26 @@ pub enum AppError {
     Conflict(String),
 }
 
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for AppError {}
+
 /// Implements `IntoResponse` for `AppError`.
 /// Converts the error into a JSON response with appropriate HTTP status code.
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            AppError::InternalServerError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            AppError::InternalServerError(msg) => {
+                tracing::error!("Internal Server Error: {}", msg);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal Server Error".to_string(),
+                )
+            }
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             AppError::AuthError(msg) => (StatusCode::UNAUTHORIZED, msg),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
