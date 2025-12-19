@@ -297,11 +297,13 @@ cargo run
 
 ## 📄 许可证
 
-[待添加许可证信息]
+本项目采用 [MIT License](LICENSE) 开源许可证。
 
 ## 📧 联系方式
 
-[待添加联系信息]
+- 项目仓库: https://github.com/chenty2333/ancient-arch
+- Issue 提交: https://github.com/chenty2333/ancient-arch/issues
+- 安全问题: 请查看 [SECURITY.md](SECURITY.md) 了解如何报告安全漏洞
 
 ---
 
