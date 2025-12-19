@@ -20,6 +20,10 @@ pub struct Config {
     pub admin_password: Option<String>,
 }
 
+// Business Logic Constants
+pub const EXAM_QUESTION_COUNT: i64 = 20;
+pub const PASSING_SCORE_PERCENTAGE: f64 = 60.0;
+
 impl Config {
     /// Loads configuration from `.env` file and environment variables.
     /// Panics if required variables are missing.

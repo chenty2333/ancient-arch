@@ -4,6 +4,7 @@ use axum::{Extension, Json, extract::State, response::IntoResponse};
 use sqlx::{PgPool, Postgres};
 
 use crate::{
+    config::{EXAM_QUESTION_COUNT, PASSING_SCORE_PERCENTAGE},
     error::AppError,
     models::{
         exam_record::SubmitExamRequest,
@@ -48,7 +49,7 @@ fn calculate_score(
 
 /// Generates a qualification exam with 20 random questions.
 pub async fn generate_exam(State(pool): State<PgPool>) -> Result<impl IntoResponse, AppError> {
-    // Fetch 20 random questions. 
+    // Fetch 20 random questions.
     // We try to mix types if possible, but for simplicity we take 20 random.
     let questions = sqlx::query_as!(
         Question,
@@ -60,11 +61,12 @@ pub async fn generate_exam(State(pool): State<PgPool>) -> Result<impl IntoRespon
             options as "options: sqlx::types::Json<Vec<String>>",
             answer,
             analysis,
-            created_at::TEXT as "created_at: String"
+            created_at
         FROM questions
         ORDER BY RANDOM()
-        LIMIT 20
-        "#
+        LIMIT $1
+        "#,
+        EXAM_QUESTION_COUNT
     )
     .fetch_all(&pool)
     .await
@@ -83,7 +85,7 @@ pub async fn generate_exam(State(pool): State<PgPool>) -> Result<impl IntoRespon
             options: q.options,
         })
         .collect();
-    
+
     Ok(Json(public_questions))
 }
 
@@ -101,9 +103,8 @@ pub async fn submit_exam(
     }
 
     // Dynamic IN clause to fetch answers
-    let mut query_builder = sqlx::QueryBuilder::<Postgres>::new(
-        "SELECT id, answer FROM questions WHERE id IN (",
-    );
+    let mut query_builder =
+        sqlx::QueryBuilder::<Postgres>::new("SELECT id, answer FROM questions WHERE id IN (");
 
     let mut separated = query_builder.separated(",");
     for id in &question_ids {
@@ -123,21 +124,18 @@ pub async fn submit_exam(
         .collect();
 
     let (correct_count, score) = calculate_score(&req.answers, &db_map);
-    let passed = score >= 60.0;
+    let passed = score >= PASSING_SCORE_PERCENTAGE;
     let user_id = claims.sub.parse::<i64>().unwrap_or(0);
 
     if passed {
         // Update user verification status
-        sqlx::query!(
-            "UPDATE users SET is_verified = TRUE WHERE id = $1",
-            user_id
-        )
-        .execute(&pool)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to update user verification: {:?}", e);
-            AppError::InternalServerError(e.to_string())
-        })?;
+        sqlx::query!("UPDATE users SET is_verified = TRUE WHERE id = $1", user_id)
+            .execute(&pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to update user verification: {:?}", e);
+                AppError::InternalServerError(e.to_string())
+            })?;
     }
 
     Ok(Json(serde_json::json!({
@@ -202,11 +200,11 @@ mod tests {
         assert_eq!(correct, 3);
         assert_eq!(score, 60.0);
     }
-    
+
     #[test]
     fn test_calculate_score_zero() {
         let mut user_answers = HashMap::new();
-        user_answers.insert(1, "B".to_string()); 
+        user_answers.insert(1, "B".to_string());
 
         let mut db_answers = HashMap::new();
         db_answers.insert(1, "A".to_string());

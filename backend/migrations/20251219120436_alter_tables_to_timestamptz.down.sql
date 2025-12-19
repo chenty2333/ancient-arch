@@ -1,0 +1,8 @@
+ALTER TABLE users 
+    ALTER COLUMN created_at TYPE TIMESTAMP;
+
+ALTER TABLE questions 
+    ALTER COLUMN created_at TYPE TIMESTAMP;
+
+ALTER TABLE exam_records 
+    ALTER COLUMN created_at TYPE TIMESTAMP;

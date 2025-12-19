@@ -24,7 +24,7 @@ pub async fn list_users(State(pool): State<PgPool>) -> Result<impl IntoResponse,
         r#"
         SELECT
         id, username, password, role, is_verified,
-        created_at::TEXT as "created_at: String"
+        created_at
         FROM users
         ORDER BY id DESC
         "#

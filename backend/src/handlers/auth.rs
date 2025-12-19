@@ -34,7 +34,7 @@ pub async fn register(
         r#"
         INSERT INTO users (username, password)
         VALUES ($1, $2)
-        RETURNING id, username, password, role, is_verified, created_at::TEXT as "created_at: String"
+        RETURNING id, username, password, role, is_verified, created_at
         "#,
         payload.username,
         hashed_password
@@ -72,7 +72,7 @@ pub async fn login(
             password, 
             role, 
             is_verified,
-            created_at::TEXT as "created_at: String"
+            created_at
         FROM users
         WHERE username = $1
         "#,

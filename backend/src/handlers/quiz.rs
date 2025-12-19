@@ -39,7 +39,7 @@ pub async fn generate_paper(State(pool): State<PgPool>) -> Result<impl IntoRespo
             options as "options: sqlx::types::Json<Vec<String>>",
             answer,
             analysis,
-            created_at::TEXT as "created_at: String"
+            created_at
         FROM questions
         WHERE type = 'single'
         ORDER BY RANDOM()
@@ -63,7 +63,7 @@ pub async fn generate_paper(State(pool): State<PgPool>) -> Result<impl IntoRespo
             options as "options: sqlx::types::Json<Vec<String>>",
             answer,
             analysis,
-            created_at::TEXT as "created_at: String"
+            created_at
         FROM questions
         WHERE type = 'multiple'
         ORDER BY RANDOM()
@@ -173,7 +173,7 @@ pub async fn get_leaderboard(State(pool): State<PgPool>) -> Result<impl IntoResp
         SELECT
             u.username,
             e.score,
-            e.created_at::TEXT as "created_at: String"
+            e.created_at
         FROM exam_records e
         JOIN users u ON e.user_id = u.id
         ORDER BY e.score DESC

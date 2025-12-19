@@ -10,7 +10,7 @@ pub struct ExamRecord {
     pub id: i64,
     pub user_id: i64,
     pub score: i64,
-    pub created_at: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Aggregated struct for displaying the leaderboard.
@@ -19,7 +19,7 @@ pub struct ExamRecord {
 pub struct LeaderboardEntry {
     pub username: String,
     pub score: i64,
-    pub created_at: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// DTO for submitting a quiz attempt.

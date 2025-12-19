@@ -23,7 +23,7 @@ pub struct User {
     /// Whether the user has passed the qualification exam.
     pub is_verified: bool,
 
-    pub created_at: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// DTO for creating a new user (Registration).

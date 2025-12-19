@@ -12,7 +12,7 @@ use axum::{
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    handlers::{admin, architecture, auth, qualification, quiz},
+    handlers::{admin, architecture, auth, community, qualification, quiz},
     state::AppState,
     utils::jwt::{admin_middleware, auth_middleware},
 };
@@ -62,6 +62,19 @@ pub fn create_router(state: AppState) -> Router {
         .route("/", get(architecture::list_architectures))
         .route("/{id}", get(architecture::get_architecture));
 
+    let post_routes = Router::new()
+        .route("/", get(community::list_posts))
+        .route("/{id}", get(community::get_post))
+        .merge(
+            Router::new()
+                .route("/", post(community::create_post))
+                .route("/{id}", delete(community::delete_post))
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    auth_middleware,
+                )),
+        );
+
     let quiz_routes = Router::new()
         .route("/generate", get(quiz::generate_paper))
         .route("/leaderboard", get(quiz::get_leaderboard))
@@ -101,6 +114,7 @@ pub fn create_router(state: AppState) -> Router {
     Router::new()
         .nest("/api/auth", auth_routes)
         .nest("/api/architectures", architecture_routes)
+        .nest("/api/posts", post_routes)
         .nest("/api/quiz", quiz_routes)
         .nest("/api/admin", admin_routes)
         // Global Middleware (applied from outside in)

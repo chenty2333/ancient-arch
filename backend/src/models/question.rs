@@ -26,7 +26,7 @@ pub struct Question {
     /// Explanation or analysis of the correct answer.
     pub analysis: Option<String>,
 
-    pub created_at: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// DTO for sending question to client (excludes answer and analysis).
