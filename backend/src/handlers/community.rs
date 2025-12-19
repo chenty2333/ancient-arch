@@ -1,8 +1,9 @@
 use axum::{
-    Extension, Json,
+    Json,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
+    Extension,
 };
 use sqlx::PgPool;
 use validator::Validate;
@@ -11,57 +12,28 @@ use crate::{
     error::AppError,
     models::{
         post::{CreatePostRequest, Post, PostListParams},
-        user::User,
     },
-    utils::jwt::Claims,
+    utils::jwt::{Claims, VerifiedUser},
 };
 
 /// Create a new post.
-/// Requires: Login + (Verification OR Admin Role).
+/// Automatically restricted to Verified users or Admins via the VerifiedUser extractor.
 pub async fn create_post(
     State(pool): State<PgPool>,
-    Extension(claims): Extension<Claims>,
+    user: VerifiedUser,
     Json(payload): Json<CreatePostRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // 1. Validate payload
-    if let Err(validation_errors) = payload.validate() {
-        return Err(AppError::BadRequest(validation_errors.to_string()));
-    }
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
-    let user_id = claims.sub.parse::<i64>().unwrap_or(0);
-
-    // 2. Check User Verification Status (DB Query)
-    let user = sqlx::query_as!(
-        User,
-        r#"
-        SELECT 
-            id, username, password, role, is_verified, 
-            created_at
-        FROM users 
-        WHERE id = $1
-        "#,
-        user_id
-    )
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| AppError::InternalServerError(e.to_string()))?
-    .ok_or(AppError::NotFound("User not found".to_string()))?;
-
-    // Rule: Must be verified OR admin to post
-    if !user.is_verified && user.role != "admin" {
-        return Err(AppError::AuthError(
-            "You must be a verified contributor to post.".to_string(),
-        ));
-    }
-
-    // 3. Insert Post
+    // 2. Insert Post (Permissions already checked by VerifiedUser extractor)
     let post_id = sqlx::query!(
         r#"
         INSERT INTO posts (user_id, title, content)
         VALUES ($1, $2, $3)
         RETURNING id
         "#,
-        user_id,
+        user.id,
         payload.title,
         payload.content
     )

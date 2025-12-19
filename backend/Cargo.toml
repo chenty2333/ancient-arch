@@ -29,6 +29,7 @@ validator = { version = "0.20.0", features = ["derive"] }
 tower_governor = "0.8.0"
 tracing-appender = "0.2.4"
 chrono = { version = "0.4.42", features = ["serde"] }
+async-trait = "0.1.89"
 
 [dev-dependencies]
 reqwest = { version = "0.12.26", features = ["json"] }

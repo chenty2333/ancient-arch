@@ -22,9 +22,20 @@ pub struct LeaderboardEntry {
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+/// DTO for returning generated exam.
+#[derive(Debug, Serialize)]
+pub struct ExamResponse {
+    pub questions: Vec<crate::models::question::PublicQuestion>,
+    pub exam_token: String,
+    pub expires_in: u64, // seconds
+}
+
 /// DTO for submitting a quiz attempt.
 #[derive(Debug, Deserialize)]
 pub struct SubmitExamRequest {
+    /// The token received from generate_exam.
+    pub exam_token: String,
+    
     /// User's answers map.
     /// Key: Question ID (i64)
     /// Value: User's selected option (String)

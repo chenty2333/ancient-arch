@@ -28,3 +28,15 @@ pub struct Architecture {
     /// `sqlx::types::Json` handles automatic serialization/deserialization.
     pub carousel_imgs: Json<Vec<String>>,
 }
+
+/// DTO for creating a new architecture entry.
+#[derive(Debug, serde::Deserialize)]
+pub struct CreateArchRequest {
+    pub category: String,
+    pub name: String,
+    pub dynasty: String,
+    pub location: String,
+    pub description: String,
+    pub cover_img: String,
+    pub carousel_imgs: Vec<String>,
+}

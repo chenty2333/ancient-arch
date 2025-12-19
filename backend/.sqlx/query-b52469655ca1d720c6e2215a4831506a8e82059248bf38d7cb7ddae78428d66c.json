@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            c.id, c.post_id, c.user_id, u.username, c.content, \n            c.root_id, c.parent_id, c.created_at, c.deleted_at\n        FROM comments c\n        JOIN users u ON c.user_id = u.id\n        WHERE c.post_id = $1 AND c.deleted_at IS NULL\n        ORDER BY c.root_id IS NOT NULL, c.root_id, c.created_at ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "post_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "username",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "root_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "parent_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "b52469655ca1d720c6e2215a4831506a8e82059248bf38d7cb7ddae78428d66c"
+}

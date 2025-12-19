@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO questions\n        (type, content, options, answer, analysis)\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING id\n        ",
+  "query": "INSERT INTO questions (type, content, options, answer, analysis) VALUES ($1, $2, $3, $4, $5) RETURNING id",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "cd137bccf09d94d6fc0df6598c51bc751fc537447ea4b25c0bc5308ee7544574"
+  "hash": "8ef1efb89043a243fa7a391a1328974c0297c9d5ead81cfd6de1f972b2e23f54"
 }

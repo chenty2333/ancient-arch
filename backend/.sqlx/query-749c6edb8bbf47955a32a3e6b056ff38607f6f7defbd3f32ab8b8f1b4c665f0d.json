@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n        id, username, password, role, is_verified,\n        created_at\n        FROM users\n        ORDER BY id DESC\n        ",
+  "query": "\n        SELECT id, username, password, role, is_verified, created_at\n        FROM users\n        ORDER BY id DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       true
     ]
   },
-  "hash": "0eae50ad914d2dd0e094af42d307122b4418e8954b1ecae437b34ab6cdc6d0fa"
+  "hash": "749c6edb8bbf47955a32a3e6b056ff38607f6f7defbd3f32ab8b8f1b4c665f0d"
 }

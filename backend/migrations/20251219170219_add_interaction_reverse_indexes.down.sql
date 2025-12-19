@@ -1,0 +1,2 @@
+DROP INDEX idx_post_likes_post_id;
+DROP INDEX idx_post_favorites_post_id;

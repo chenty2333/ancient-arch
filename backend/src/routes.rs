@@ -12,7 +12,10 @@ use axum::{
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    handlers::{admin, architecture, auth, community, interaction, qualification, quiz},
+    handlers::{
+        admin, architecture, auth, community, contribution, interaction, profile, qualification,
+        quiz,
+    },
     state::AppState,
     utils::jwt::{admin_middleware, auth_middleware, optional_auth_middleware},
 };
@@ -61,7 +64,7 @@ pub fn create_router(state: AppState) -> Router {
     let architecture_routes = Router::new()
         .route("/", get(architecture::list_architectures))
         .route("/{id}", get(architecture::get_architecture));
-    
+
     let post_routes = Router::new()
         .route("/", get(community::list_posts))
         .route(
@@ -84,6 +87,24 @@ pub fn create_router(state: AppState) -> Router {
                     auth_middleware,
                 )),
         );
+
+    let profile_routes = Router::new()
+        .route("/me", get(profile::get_me))
+        .route("/posts", get(profile::list_my_posts))
+        .route("/favorites", get(profile::list_my_favorites))
+        .route("/contributions", get(profile::list_my_contributions))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+
+    let contribution_routes = Router::new()
+        .route("/", post(contribution::create_contribution))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+
     let quiz_routes = Router::new()
         .route("/generate", get(quiz::generate_paper))
         .route("/leaderboard", get(quiz::get_leaderboard))
@@ -113,6 +134,8 @@ pub fn create_router(state: AppState) -> Router {
             "/questions/{id}",
             delete(admin::delete_question).put(admin::update_question),
         )
+        .route("/contributions", get(admin::list_contributions))
+        .route("/contributions/{id}/review", put(admin::review_contribution))
         // Double middleware protection: Auth first, then Admin check
         .layer(middleware::from_fn(admin_middleware))
         .layer(middleware::from_fn_with_state(
@@ -124,6 +147,8 @@ pub fn create_router(state: AppState) -> Router {
         .nest("/api/auth", auth_routes)
         .nest("/api/architectures", architecture_routes)
         .nest("/api/posts", post_routes)
+        .nest("/api/profile", profile_routes)
+        .nest("/api/contributions", contribution_routes)
         .nest("/api/quiz", quiz_routes)
         .nest("/api/admin", admin_routes)
         // Global Middleware (applied from outside in)

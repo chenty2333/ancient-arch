@@ -2,13 +2,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::{
     body::Body,
-    extract::State,
-    http::{Request, StatusCode, header},
+    extract::{FromRef, FromRequestParts, State},
+    http::{Request, StatusCode, header, request::Parts},
     middleware::Next,
     response::Response,
 };
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 
 use crate::{config::Config, error::AppError};
 
@@ -21,6 +22,49 @@ pub struct Claims {
     pub role: String,
     /// Expiration time as Unix timestamp.
     pub exp: usize,
+}
+
+/// A custom extractor that only allows verified users or admins.
+pub struct VerifiedUser {
+    pub id: i64,
+}
+
+impl<S> FromRequestParts<S> for VerifiedUser
+where
+    PgPool: FromRef<S>,
+    Config: FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        // 1. Get dependencies from state
+        let pool = PgPool::from_ref(state);
+        let config = Config::from_ref(state);
+
+        // 2. Extract and verify Token
+        let claims = extract_claims_from_header(&parts.headers, &config.jwt_secret)
+            .ok_or(AppError::AuthError("Missing or invalid token".to_string()))?;
+
+        let user_id = claims.sub.parse::<i64>().unwrap_or(0);
+
+        // 3. Check DB status
+        let user = sqlx::query!(
+            "SELECT is_verified, role FROM users WHERE id = $1",
+            user_id
+        )
+        .fetch_optional(&pool)
+        .await?
+        .ok_or(AppError::NotFound("User not found".to_string()))?;
+
+        if user.is_verified || user.role == "admin" {
+            Ok(VerifiedUser { id: user_id })
+        } else {
+            Err(AppError::AuthError(
+                "You must be a verified contributor to perform this action.".to_string(),
+            ))
+        }
+    }
 }
 
 /// Signs a new JWT for the user.

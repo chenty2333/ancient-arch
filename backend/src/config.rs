@@ -6,7 +6,7 @@ use std::env;
 /// Application configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// Database connection string (SQLite).
+    /// Database connection string (PostgreSQL, also supports SQLite for local dev).
     pub database_url: String,
     /// Secret key for signing JWTs.
     pub jwt_secret: String,

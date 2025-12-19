@@ -68,3 +68,9 @@ impl From<sqlx::Error> for AppError {
         AppError::InternalServerError(err.to_string())
     }
 }
+
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
+        AppError::BadRequest(err.to_string())
+    }
+}

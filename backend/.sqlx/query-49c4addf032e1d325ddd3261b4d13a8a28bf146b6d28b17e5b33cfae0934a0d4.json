@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            id,\n            type as \"question_type\",\n            content,\n            options as \"options: sqlx::types::Json<Vec<String>>\",\n            answer,\n            analysis,\n            created_at\n        FROM questions\n        ORDER BY RANDOM()\n        LIMIT $1\n        ",
+  "query": "SELECT id, user_id, type, data, status, admin_comment, created_at, reviewed_at FROM contributions ORDER BY created_at ASC",
   "describe": {
     "columns": [
       {
@@ -10,39 +10,42 @@
       },
       {
         "ordinal": 1,
-        "name": "question_type",
-        "type_info": "Text"
+        "name": "user_id",
+        "type_info": "Int8"
       },
       {
         "ordinal": 2,
-        "name": "content",
+        "name": "type",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
-        "name": "options: sqlx::types::Json<Vec<String>>",
+        "name": "data",
         "type_info": "Jsonb"
       },
       {
         "ordinal": 4,
-        "name": "answer",
+        "name": "status",
         "type_info": "Text"
       },
       {
         "ordinal": 5,
-        "name": "analysis",
+        "name": "admin_comment",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "reviewed_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": [
-        "Int8"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -51,8 +54,9 @@
       false,
       false,
       true,
+      false,
       true
     ]
   },
-  "hash": "ca27978074a644165ebf2e712ca5fa5fb4747bdf09f4b994cbc72ce2dcfbd663"
+  "hash": "49c4addf032e1d325ddd3261b4d13a8a28bf146b6d28b17e5b33cfae0934a0d4"
 }

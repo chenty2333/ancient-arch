@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM post_likes WHERE user_id = $1 AND post_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "075bd24258451d77e3f539cc462fe2390a23c42ead13330c2b29cbd75e71d200"
+}

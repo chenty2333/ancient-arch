@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            f.post_id, p.title, u.username as author_username, \n            f.created_at as favorited_at\n        FROM post_favorites f\n        JOIN posts p ON f.post_id = p.id\n        JOIN users u ON p.user_id = u.id\n        WHERE f.user_id = $1 AND p.deleted_at IS NULL\n        ORDER BY f.created_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "post_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_username",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "favorited_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c8971b70255c5aec2b065dbb53af2c48b69fc3a4f14f4dd9ae1018038003de33"
+}

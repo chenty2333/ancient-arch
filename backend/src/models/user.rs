@@ -26,6 +26,27 @@ pub struct User {
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+/// Aggregated user profile data for the current user.
+#[derive(Debug, Serialize)]
+pub struct MeResponse {
+    pub id: i64,
+    pub username: String,
+    pub role: String,
+    pub is_verified: bool,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub posts_count: i64,
+    pub total_likes_received: i64,
+}
+
+/// DTO for a favorited post item, including joined post info.
+#[derive(Debug, Serialize, FromRow)]
+pub struct FavoritePostResponse {
+    pub post_id: i64,
+    pub title: String,
+    pub author_username: String,
+    pub favorited_at: chrono::DateTime<chrono::Utc>,
+}
+
 /// DTO for creating a new user (Registration).
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateUserRequest {

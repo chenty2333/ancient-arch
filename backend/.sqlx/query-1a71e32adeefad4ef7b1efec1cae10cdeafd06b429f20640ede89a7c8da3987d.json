@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            id, username, password, role, is_verified, \n            created_at\n        FROM users \n        WHERE id = $1\n        ",
+  "query": "SELECT * FROM contributions WHERE id = $1 AND status = 'pending'",
   "describe": {
     "columns": [
       {
@@ -10,27 +10,37 @@
       },
       {
         "ordinal": 1,
-        "name": "username",
-        "type_info": "Text"
+        "name": "user_id",
+        "type_info": "Int8"
       },
       {
         "ordinal": 2,
-        "name": "password",
+        "name": "type",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
-        "name": "role",
-        "type_info": "Text"
+        "name": "data",
+        "type_info": "Jsonb"
       },
       {
         "ordinal": 4,
-        "name": "is_verified",
-        "type_info": "Bool"
+        "name": "status",
+        "type_info": "Text"
       },
       {
         "ordinal": 5,
+        "name": "admin_comment",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
         "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "reviewed_at",
         "type_info": "Timestamptz"
       }
     ],
@@ -45,8 +55,10 @@
       false,
       false,
       false,
+      true,
+      false,
       true
     ]
   },
-  "hash": "f062b2127745d6b8805333405c88e5008d5a60f60bdd3a5eb00f929f35665656"
+  "hash": "1a71e32adeefad4ef7b1efec1cae10cdeafd06b429f20640ede89a7c8da3987d"
 }

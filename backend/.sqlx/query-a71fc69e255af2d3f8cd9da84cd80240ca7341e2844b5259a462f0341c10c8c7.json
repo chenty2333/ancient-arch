@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO architectures\n        (category, name, dynasty, location, description, cover_img, carousel_imgs)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        RETURNING id\n        ",
+  "query": "\n        INSERT INTO architectures (category, name, dynasty, location, description, cover_img, carousel_imgs)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        RETURNING id\n        ",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "9d05a432552c88e0437594fac577110a5577bd136c0bbd5f250f2d0c42efb73e"
+  "hash": "a71fc69e255af2d3f8cd9da84cd80240ca7341e2844b5259a462f0341c10c8c7"
 }

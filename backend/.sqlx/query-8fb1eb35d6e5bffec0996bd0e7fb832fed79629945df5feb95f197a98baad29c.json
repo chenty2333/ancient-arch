@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            id, user_id, title, content, \n            created_at,\n            updated_at,\n            deleted_at,\n            likes_count, comments_count, favorites_count\n        FROM posts\n        WHERE id = $1 AND deleted_at IS NULL\n        ",
+  "query": "\n            SELECT \n                p.id, p.user_id, p.title, p.content, \n                p.created_at, p.updated_at, p.deleted_at,\n                p.likes_count, p.comments_count, p.favorites_count,\n                (EXISTS (SELECT 1 FROM post_likes WHERE user_id = $2 AND post_id = p.id)) as \"is_liked!\",\n                (EXISTS (SELECT 1 FROM post_favorites WHERE user_id = $2 AND post_id = p.id)) as \"is_favorited!\"\n            FROM posts p\n            WHERE p.id = $1 AND p.deleted_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -52,10 +52,21 @@
         "ordinal": 9,
         "name": "favorites_count",
         "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "is_liked!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "is_favorited!",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
+        "Int8",
         "Int8"
       ]
     },
@@ -69,8 +80,10 @@
       true,
       false,
       false,
-      false
+      false,
+      null,
+      null
     ]
   },
-  "hash": "2cc54d921016b2d8e9b2c8bc6b87b9466b72799b7035bea9fe03c6cdfadeacf5"
+  "hash": "8fb1eb35d6e5bffec0996bd0e7fb832fed79629945df5feb95f197a98baad29c"
 }

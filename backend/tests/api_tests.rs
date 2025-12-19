@@ -192,7 +192,9 @@ async fn test_qualification_flow() {
 
     assert_eq!(exam_resp.status().as_u16(), 200);
 
-    let questions: Vec<serde_json::Value> = exam_resp.json().await.unwrap();
+    let exam_data: serde_json::Value = exam_resp.json().await.unwrap();
+    let questions = exam_data["questions"].as_array().expect("Questions not found");
+    let exam_token = exam_data["exam_token"].as_str().expect("Exam token not found");
     assert!(questions.len() > 0);
 
     // 4. Submit Answers (All 'A', which is correct per our seed)
@@ -205,7 +207,10 @@ async fn test_qualification_flow() {
     let submit_resp = client
         .post(&format!("{}/api/auth/qualification/submit", address))
         .header("Authorization", format!("Bearer {}", token))
-        .json(&serde_json::json!({ "answers": answers }))
+        .json(&serde_json::json!({ 
+            "answers": answers,
+            "exam_token": exam_token
+        }))
         .send()
         .await
         .expect("Submit failed");
@@ -554,4 +559,75 @@ async fn test_interaction_flow() {
     let reply = comments.iter().find(|c| c["id"].as_i64() == Some(c2_id)).unwrap();
     assert_eq!(reply["root_id"].as_i64(), Some(c1_id));
     assert_eq!(reply["parent_id"].as_i64(), Some(c1_id));
+}
+
+#[tokio::test]
+async fn test_contribution_flow() {
+    // Arrange
+    let address = spawn_app().await;
+    let client = reqwest::Client::new();
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPoolOptions::new().max_connections(1).connect(&database_url).await.unwrap();
+
+    // 1. Setup User (Verified) and Admin
+    let user_name = format!("u_c_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+    let admin_name = format!("admin_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+    let password = "password123";
+
+    // Register User
+    client.post(&format!("{}/api/auth/register", address))
+        .json(&serde_json::json!({"username": user_name, "password": password}))
+        .send().await.unwrap();
+    sqlx::query!("UPDATE users SET is_verified = TRUE WHERE username = $1", user_name).execute(&pool).await.unwrap();
+    let login_user = client.post(&format!("{}/api/auth/login", address)).json(&serde_json::json!({"username": user_name, "password": password})).send().await.unwrap().json::<serde_json::Value>().await.unwrap();
+    let user_token = login_user["token"].as_str().unwrap();
+
+    // Setup Admin (via direct DB because we need role='admin')
+    let hashed_pw = backend::utils::hash::hash_password(password).unwrap();
+    sqlx::query!("INSERT INTO users (username, password, role) VALUES ($1, $2, 'admin')", admin_name, hashed_pw).execute(&pool).await.unwrap();
+    let login_admin = client.post(&format!("{}/api/auth/login", address)).json(&serde_json::json!({"username": admin_name, "password": password})).send().await.unwrap().json::<serde_json::Value>().await.unwrap();
+    let admin_token = login_admin["token"].as_str().unwrap();
+
+    // 2. Submit valid architecture
+    let arch_payload = serde_json::json!({
+        "type": "architecture",
+        "data": {
+            "category": "Palace",
+            "name": "Forbidden City Contribution",
+            "dynasty": "Ming",
+            "location": "Beijing",
+            "description": "Crowdsourced desc",
+            "cover_img": "http://img.com",
+            "carousel_imgs": ["http://1.com"]
+        }
+    });
+
+    let resp = client.post(&format!("{}/api/contributions", address))
+        .header("Authorization", format!("Bearer {}", user_token))
+        .json(&arch_payload)
+        .send().await.unwrap();
+    assert_eq!(resp.status().as_u16(), 201);
+    let contrib_id = resp.json::<serde_json::Value>().await.unwrap()["id"].as_i64().unwrap();
+
+    // 3. Try to submit again same day -> Should Fail (409 Conflict)
+    let resp_fail = client.post(&format!("{}/api/contributions", address))
+        .header("Authorization", format!("Bearer {}", user_token))
+        .json(&arch_payload)
+        .send().await.unwrap();
+    assert_eq!(resp_fail.status().as_u16(), 409);
+
+    // 4. Admin reviews and approves
+    let review_resp = client.put(&format!("{}/api/admin/contributions/{}/review", address, contrib_id))
+        .header("Authorization", format!("Bearer {}", admin_token))
+        .json(&serde_json::json!({
+            "status": "approved",
+            "admin_comment": "Excellent work!"
+        }))
+        .send().await.unwrap();
+    assert_eq!(review_resp.status().as_u16(), 200);
+
+    // 5. Verify it's in the real architectures table
+    let arch_check = client.get(&format!("{}/api/architectures", address)).send().await.unwrap().json::<Vec<serde_json::Value>>().await.unwrap();
+    let found = arch_check.iter().any(|a| a["name"] == "Forbidden City Contribution");
+    assert!(found, "The approved architecture should be in the main list");
 }

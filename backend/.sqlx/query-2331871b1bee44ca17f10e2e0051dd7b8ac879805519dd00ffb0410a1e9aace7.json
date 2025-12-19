@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE posts SET favorites_count = GREATEST(0, favorites_count - 1) WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2331871b1bee44ca17f10e2e0051dd7b8ac879805519dd00ffb0410a1e9aace7"
+}
