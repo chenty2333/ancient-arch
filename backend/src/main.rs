@@ -47,7 +47,10 @@ async fn main() {
                 if retry_count > 5 {
                     panic!("Failed to connect to database after 5 retries: {}", e);
                 }
-                tracing::warn!("Database not ready, retrying in 2s... (Attempt {})", retry_count);
+                tracing::warn!(
+                    "Database not ready, retrying in 2s... (Attempt {})",
+                    retry_count
+                );
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
         }

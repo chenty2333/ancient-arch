@@ -35,7 +35,7 @@ pub struct ExamResponse {
 pub struct SubmitExamRequest {
     /// The token received from generate_exam.
     pub exam_token: String,
-    
+
     /// User's answers map.
     /// Key: Question ID (i64)
     /// Value: User's selected option (String)

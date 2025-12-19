@@ -20,7 +20,7 @@ pub struct Contribution {
 pub struct CreateContributionRequest {
     #[validate(length(min = 1))]
     pub r#type: String,
-    
+
     /// The payload must be a valid JSON matching the target model's create request.
     pub data: serde_json::Value,
 }

@@ -19,9 +19,13 @@ pub struct Comment {
 /// DTO for creating a new comment.
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateCommentRequest {
-    #[validate(length(min = 1, max = 1000, message = "Comment must be between 1 and 1000 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 1000,
+        message = "Comment must be between 1 and 1000 characters"
+    ))]
     pub content: String,
-    
+
     /// Optional: the ID of the comment being replied to.
     pub parent_id: Option<i64>,
 }

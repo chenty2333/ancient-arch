@@ -135,7 +135,10 @@ pub fn create_router(state: AppState) -> Router {
             delete(admin::delete_question).put(admin::update_question),
         )
         .route("/contributions", get(admin::list_contributions))
-        .route("/contributions/{id}/review", put(admin::review_contribution))
+        .route(
+            "/contributions/{id}/review",
+            put(admin::review_contribution),
+        )
         // Double middleware protection: Auth first, then Admin check
         .layer(middleware::from_fn(admin_middleware))
         .layer(middleware::from_fn_with_state(

@@ -2,7 +2,7 @@
 
 use axum::{
     Json,
-    extract::{Path, State, Extension},
+    extract::{Extension, Path, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -13,10 +13,8 @@ use validator::Validate;
 use crate::{
     error::AppError,
     models::{
-        architecture::CreateArchRequest,
-        contribution::Contribution,
-        question::CreateQuestionRequest,
-        user::User,
+        architecture::CreateArchRequest, contribution::Contribution,
+        question::CreateQuestionRequest, user::User,
     },
     utils::{hash::hash_password, jwt::Claims},
 };
@@ -98,7 +96,9 @@ pub async fn create_user(
     State(pool): State<PgPool>,
     Json(payload): Json<AdminCreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    payload
+        .validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let hashed_password = hash_password(&payload.password)?;
 
@@ -129,14 +129,24 @@ pub async fn update_user(
 ) -> Result<impl IntoResponse, AppError> {
     // Sequential updates for simplicity in Admin panel
     if let Some(new_username) = payload.username {
-        sqlx::query!("UPDATE users SET username = $1 WHERE id = $2", new_username, id).execute(&pool).await?;
+        sqlx::query!(
+            "UPDATE users SET username = $1 WHERE id = $2",
+            new_username,
+            id
+        )
+        .execute(&pool)
+        .await?;
     }
     if let Some(new_role) = payload.role {
-        sqlx::query!("UPDATE users SET role = $1 WHERE id = $2", new_role, id).execute(&pool).await?;
+        sqlx::query!("UPDATE users SET role = $1 WHERE id = $2", new_role, id)
+            .execute(&pool)
+            .await?;
     }
     if let Some(new_password) = payload.password {
         let hashed = hash_password(&new_password)?;
-        sqlx::query!("UPDATE users SET password = $1 WHERE id = $2", hashed, id).execute(&pool).await?;
+        sqlx::query!("UPDATE users SET password = $1 WHERE id = $2", hashed, id)
+            .execute(&pool)
+            .await?;
     }
     Ok(StatusCode::OK)
 }
@@ -151,7 +161,9 @@ pub async fn delete_user(
         return Err(AppError::BadRequest("Cannot delete yourself".to_string()));
     }
 
-    let result = sqlx::query!("DELETE FROM users WHERE id = $1", id).execute(&pool).await?;
+    let result = sqlx::query!("DELETE FROM users WHERE id = $1", id)
+        .execute(&pool)
+        .await?;
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound("User not found".to_string()));
     }
@@ -188,28 +200,55 @@ pub async fn update_architecture(
     let mut builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE architectures SET ");
     let mut separated = builder.separated(", ");
 
-    if let Some(v) = payload.category { separated.push("category = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.name { separated.push("name = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.dynasty { separated.push("dynasty = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.location { separated.push("location = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.description { separated.push("description = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.cover_img { separated.push("cover_img = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.carousel_imgs { 
-        separated.push("carousel_imgs = "); 
-        separated.push_bind_unseparated(serde_json::to_value(v).unwrap_or_default()); 
+    if let Some(v) = payload.category {
+        separated.push("category = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.name {
+        separated.push("name = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.dynasty {
+        separated.push("dynasty = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.location {
+        separated.push("location = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.description {
+        separated.push("description = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.cover_img {
+        separated.push("cover_img = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.carousel_imgs {
+        separated.push("carousel_imgs = ");
+        separated.push_bind_unseparated(serde_json::to_value(v).unwrap_or_default());
     }
 
     builder.push(" WHERE id = ");
     builder.push_bind(id);
 
     let result = builder.build().execute(&pool).await?;
-    if result.rows_affected() == 0 { return Err(AppError::NotFound("Architecture not found".to_string())); }
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Architecture not found".to_string()));
+    }
     Ok(StatusCode::OK)
 }
 
-pub async fn delete_architecture(State(pool): State<PgPool>, Path(id): Path<i64>) -> Result<impl IntoResponse, AppError> {
-    let result = sqlx::query!("DELETE FROM architectures WHERE id = $1", id).execute(&pool).await?;
-    if result.rows_affected() == 0 { return Err(AppError::NotFound("Architecture not found".to_string())); }
+pub async fn delete_architecture(
+    State(pool): State<PgPool>,
+    Path(id): Path<i64>,
+) -> Result<impl IntoResponse, AppError> {
+    let result = sqlx::query!("DELETE FROM architectures WHERE id = $1", id)
+        .execute(&pool)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Architecture not found".to_string()));
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -239,26 +278,47 @@ pub async fn update_question(
     let mut builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE questions SET ");
     let mut separated = builder.separated(", ");
 
-    if let Some(v) = payload.question_type { separated.push("type = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.content { separated.push("content = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.options { 
-        separated.push("options = "); 
-        separated.push_bind_unseparated(serde_json::to_value(v).unwrap_or_default()); 
+    if let Some(v) = payload.question_type {
+        separated.push("type = ");
+        separated.push_bind_unseparated(v);
     }
-    if let Some(v) = payload.answer { separated.push("answer = "); separated.push_bind_unseparated(v); }
-    if let Some(v) = payload.analysis { separated.push("analysis = "); separated.push_bind_unseparated(v); }
+    if let Some(v) = payload.content {
+        separated.push("content = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.options {
+        separated.push("options = ");
+        separated.push_bind_unseparated(serde_json::to_value(v).unwrap_or_default());
+    }
+    if let Some(v) = payload.answer {
+        separated.push("answer = ");
+        separated.push_bind_unseparated(v);
+    }
+    if let Some(v) = payload.analysis {
+        separated.push("analysis = ");
+        separated.push_bind_unseparated(v);
+    }
 
     builder.push(" WHERE id = ");
     builder.push_bind(id);
 
     let result = builder.build().execute(&pool).await?;
-    if result.rows_affected() == 0 { return Err(AppError::NotFound("Question not found".to_string())); }
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Question not found".to_string()));
+    }
     Ok(StatusCode::OK)
 }
 
-pub async fn delete_question(State(pool): State<PgPool>, Path(id): Path<i64>) -> Result<impl IntoResponse, AppError> {
-    let result = sqlx::query!("DELETE FROM questions WHERE id = $1", id).execute(&pool).await?;
-    if result.rows_affected() == 0 { return Err(AppError::NotFound("Question not found".to_string())); }
+pub async fn delete_question(
+    State(pool): State<PgPool>,
+    Path(id): Path<i64>,
+) -> Result<impl IntoResponse, AppError> {
+    let result = sqlx::query!("DELETE FROM questions WHERE id = $1", id)
+        .execute(&pool)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Question not found".to_string()));
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -290,7 +350,9 @@ pub async fn review_contribution(
     )
     .fetch_optional(&mut *tx)
     .await?
-    .ok_or(AppError::NotFound("Pending contribution not found".to_string()))?;
+    .ok_or(AppError::NotFound(
+        "Pending contribution not found".to_string(),
+    ))?;
 
     if payload.status == "approved" {
         match contrib.r#type.as_str() {
@@ -301,7 +363,7 @@ pub async fn review_contribution(
                     "INSERT INTO architectures (category, name, dynasty, location, description, cover_img, carousel_imgs) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                     data.category, data.name, data.dynasty, data.location, data.description, data.cover_img, carousel
                 ).execute(&mut *tx).await?;
-            },
+            }
             "question" => {
                 let data: CreateQuestionRequest = serde_json::from_value(contrib.data)?;
                 let options = serde_json::to_value(data.options).unwrap_or_default();
@@ -309,7 +371,7 @@ pub async fn review_contribution(
                     "INSERT INTO questions (type, content, options, answer, analysis) VALUES ($1, $2, $3, $4, $5)",
                     data.question_type, data.content, options, data.answer, data.analysis
                 ).execute(&mut *tx).await?;
-            },
+            }
             _ => return Err(AppError::BadRequest("Unknown type".to_string())),
         }
     }

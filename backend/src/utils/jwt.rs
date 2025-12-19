@@ -49,13 +49,10 @@ where
         let user_id = claims.sub.parse::<i64>().unwrap_or(0);
 
         // 3. Check DB status
-        let user = sqlx::query!(
-            "SELECT is_verified, role FROM users WHERE id = $1",
-            user_id
-        )
-        .fetch_optional(&pool)
-        .await?
-        .ok_or(AppError::NotFound("User not found".to_string()))?;
+        let user = sqlx::query!("SELECT is_verified, role FROM users WHERE id = $1", user_id)
+            .fetch_optional(&pool)
+            .await?
+            .ok_or(AppError::NotFound("User not found".to_string()))?;
 
         if user.is_verified || user.role == "admin" {
             Ok(VerifiedUser { id: user_id })

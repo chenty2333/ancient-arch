@@ -1,17 +1,16 @@
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Query, State},
     response::IntoResponse,
-    Extension,
 };
 use sqlx::PgPool;
 
 use crate::{
     error::AppError,
     models::{
-        post::{Post, PostListParams},
-        user::{MeResponse, FavoritePostResponse},
         contribution::Contribution,
+        post::{Post, PostListParams},
+        user::{FavoritePostResponse, MeResponse},
     },
     utils::jwt::Claims,
 };

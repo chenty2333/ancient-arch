@@ -1,18 +1,15 @@
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Extension,
 };
 use sqlx::PgPool;
 use validator::Validate;
 
 use crate::{
     error::AppError,
-    models::{
-        comment::{CommentResponse, CreateCommentRequest},
-    },
+    models::comment::{CommentResponse, CreateCommentRequest},
     utils::jwt::Claims,
 };
 
@@ -24,7 +21,10 @@ pub async fn toggle_like(
 ) -> Result<impl IntoResponse, AppError> {
     let user_id = claims.sub.parse::<i64>().unwrap_or(0);
 
-    let mut tx = pool.begin().await.map_err(|e| AppError::InternalServerError(e.to_string()))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
     // 1. Check if already liked
     let existing = sqlx::query!(
@@ -82,7 +82,9 @@ pub async fn toggle_like(
         .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     }
 
-    tx.commit().await.map_err(|e| AppError::InternalServerError(e.to_string()))?;
+    tx.commit()
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
     Ok(Json(serde_json::json!({ "liked": !is_liked })))
 }
@@ -95,7 +97,10 @@ pub async fn toggle_favorite(
 ) -> Result<impl IntoResponse, AppError> {
     let user_id = claims.sub.parse::<i64>().unwrap_or(0);
 
-    let mut tx = pool.begin().await.map_err(|e| AppError::InternalServerError(e.to_string()))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
     let existing = sqlx::query!(
         "SELECT 1 as one FROM post_favorites WHERE user_id = $1 AND post_id = $2",
@@ -152,7 +157,9 @@ pub async fn create_comment(
     Path(post_id): Path<i64>,
     Json(payload): Json<CreateCommentRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    payload
+        .validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
     let user_id = claims.sub.parse::<i64>().unwrap_or(0);
 
     let mut tx = pool.begin().await?;
@@ -202,7 +209,10 @@ pub async fn create_comment(
 
     tx.commit().await?;
 
-    Ok((StatusCode::CREATED, Json(serde_json::json!({ "id": new_id }))))
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "id": new_id })),
+    ))
 }
 
 /// List all comments for a post.

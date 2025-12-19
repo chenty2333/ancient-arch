@@ -6,6 +6,6 @@ pub mod auth;
 pub mod community;
 pub mod contribution;
 pub mod interaction;
+pub mod profile;
 pub mod qualification;
 pub mod quiz;
-pub mod profile;

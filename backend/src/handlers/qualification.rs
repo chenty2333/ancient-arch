@@ -77,12 +77,12 @@ pub async fn generate_exam(
     .await?;
 
     let qids: Vec<i64> = questions.iter().map(|q| q.id).collect();
-    
+
     // Create Exam Token (Expires in 15 minutes)
     let expires_in = 900; // 15 mins
     let exp = (chrono::Utc::now().timestamp() as usize) + expires_in;
     let claims = ExamClaims { qids, exp };
-    
+
     let exam_token = encode(
         &Header::default(),
         &claims,
@@ -120,19 +120,26 @@ pub async fn submit_exam(
         &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &Validation::default(),
     )
-    .map_err(|_| AppError::BadRequest("Invalid or expired exam token. Please restart the exam.".to_string()))?;
+    .map_err(|_| {
+        AppError::BadRequest("Invalid or expired exam token. Please restart the exam.".to_string())
+    })?;
 
     let allowed_qids = token_data.claims.qids;
 
     // 2. Security Check: Ensure user submitted exactly the questions we gave them.
     for qid in req.answers.keys() {
         if !allowed_qids.contains(qid) {
-            return Err(AppError::BadRequest(format!("Question ID {} was not part of this exam session.", qid)));
+            return Err(AppError::BadRequest(format!(
+                "Question ID {} was not part of this exam session.",
+                qid
+            )));
         }
     }
 
     if req.answers.len() < allowed_qids.len() {
-        return Err(AppError::BadRequest("Please answer all questions before submitting.".to_string()));
+        return Err(AppError::BadRequest(
+            "Please answer all questions before submitting.".to_string(),
+        ));
     }
 
     // 3. Fetch Answer Keys
@@ -144,10 +151,7 @@ pub async fn submit_exam(
     }
     separated.push_unseparated(")");
 
-    let db_answers_vec: Vec<AnswerKey> = query_builder
-        .build_query_as()
-        .fetch_all(&pool)
-        .await?;
+    let db_answers_vec: Vec<AnswerKey> = query_builder.build_query_as().fetch_all(&pool).await?;
 
     let db_map: HashMap<i64, String> = db_answers_vec
         .into_iter()

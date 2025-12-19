@@ -1,18 +1,15 @@
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    Extension,
 };
 use sqlx::PgPool;
 use validator::Validate;
 
 use crate::{
     error::AppError,
-    models::{
-        post::{CreatePostRequest, Post, PostListParams},
-    },
+    models::post::{CreatePostRequest, Post, PostListParams},
     utils::jwt::{Claims, VerifiedUser},
 };
 
@@ -24,7 +21,9 @@ pub async fn create_post(
     Json(payload): Json<CreatePostRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // 1. Validate payload
-    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    payload
+        .validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     // 2. Insert Post (Permissions already checked by VerifiedUser extractor)
     let post_id = sqlx::query!(

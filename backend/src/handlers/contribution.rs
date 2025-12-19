@@ -1,17 +1,11 @@
-use axum::{
-    Json,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-};
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use sqlx::PgPool;
 use validator::Validate;
 
 use crate::{
     error::AppError,
     models::{
-        contribution::CreateContributionRequest,
-        architecture::CreateArchRequest,
+        architecture::CreateArchRequest, contribution::CreateContributionRequest,
         question::CreateQuestionRequest,
     },
     utils::jwt::VerifiedUser,
@@ -25,11 +19,15 @@ pub async fn create_contribution(
     Json(payload): Json<CreateContributionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // 1. Basic validation
-    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    payload
+        .validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     // 2. Strict Payload Validation
     if payload.r#type != "architecture" && payload.r#type != "question" {
-        return Err(AppError::BadRequest("Invalid contribution type".to_string()));
+        return Err(AppError::BadRequest(
+            "Invalid contribution type".to_string(),
+        ));
     }
 
     // We try to deserialize the JSON 'data' to ensure it's valid for the target type.
@@ -37,11 +35,11 @@ pub async fn create_contribution(
         "architecture" => {
             let _: CreateArchRequest = serde_json::from_value(payload.data.clone())
                 .map_err(|e| AppError::BadRequest(format!("Invalid architecture data: {}", e)))?;
-        },
+        }
         "question" => {
             let _: CreateQuestionRequest = serde_json::from_value(payload.data.clone())
                 .map_err(|e| AppError::BadRequest(format!("Invalid question data: {}", e)))?;
-        },
+        }
         _ => unreachable!(), // Handled by validator
     }
 
@@ -61,7 +59,10 @@ pub async fn create_contribution(
     .map_err(|e| {
         // Handle "once per day" unique constraint violation
         if e.to_string().contains("idx_user_daily_contribution") {
-            AppError::Conflict("You have already submitted a contribution today. Please try again tomorrow.".to_string())
+            AppError::Conflict(
+                "You have already submitted a contribution today. Please try again tomorrow."
+                    .to_string(),
+            )
         } else {
             tracing::error!("Failed to submit contribution: {:?}", e);
             AppError::InternalServerError(e.to_string())
