@@ -26,9 +26,17 @@ pub struct User {
 /// DTO for creating a new user (Registration).
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateUserRequest {
-    #[validate(length(min = 3, max = 20, message = "Username length must be between 3 and 20 characters."))]
+    #[validate(length(
+        min = 3,
+        max = 20,
+        message = "Username length must be between 3 and 20 characters."
+    ))]
     pub username: String,
-    #[validate(length(min = 4, max = 20, message = "Password length must be between 4 and 20 characters."))]
+    #[validate(length(
+        min = 4,
+        max = 20,
+        message = "Password length must be between 4 and 20 characters."
+    ))]
     pub password: String,
 }
 

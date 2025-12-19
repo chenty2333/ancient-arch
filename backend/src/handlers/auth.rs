@@ -6,6 +6,7 @@ use sqlx::PgPool;
 use validator::Validate;
 
 use crate::{
+    config::Config,
     error::AppError,
     models::user::{CreateUserRequest, User},
     utils::{
@@ -25,7 +26,7 @@ pub async fn register(
     if let Err(validation_errors) = payload.validate() {
         return Err(AppError::BadRequest(validation_errors.to_string()));
     }
-    
+
     let hashed_password = hash_password(&payload.password)?;
 
     let user = sqlx::query_as!(
@@ -59,6 +60,7 @@ pub async fn register(
 /// If valid, signs a JWT token with the user's ID and role.
 pub async fn login(
     State(pool): State<PgPool>,
+    State(config): State<Config>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let user = sqlx::query_as!(
@@ -90,7 +92,13 @@ pub async fn login(
         return Err(AppError::AuthError("Invalid password".to_string()));
     }
 
-    let token = sign_jwt(user.id, &user.username, &user.role)?;
+    let token = sign_jwt(
+        user.id,
+        &user.username,
+        &user.role,
+        &config.jwt_secret,
+        config.jwt_expiration,
+    )?;
 
     Ok(Json(json!({
         "token": token,

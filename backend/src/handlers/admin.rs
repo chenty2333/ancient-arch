@@ -7,7 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 use serde::Deserialize;
-use sqlx::{QueryBuilder, Postgres, PgPool};
+use sqlx::{PgPool, Postgres, QueryBuilder};
 use validator::Validate;
 
 use crate::{
@@ -42,9 +42,17 @@ pub async fn list_users(State(pool): State<PgPool>) -> Result<impl IntoResponse,
 /// DTO for Admin creating a user (can specify role).
 #[derive(Debug, Deserialize, Validate)]
 pub struct AdminCreateUserRequest {
-    #[validate(length(min = 3, max = 20, message = "Username length must be between 3 and 20 characters."))]
+    #[validate(length(
+        min = 3,
+        max = 20,
+        message = "Username length must be between 3 and 20 characters."
+    ))]
     pub username: String,
-    #[validate(length(min = 4, max = 20, message = "Password length must be between 4 and 20 characters."))]
+    #[validate(length(
+        min = 4,
+        max = 20,
+        message = "Password length must be between 4 and 20 characters."
+    ))]
     pub password: String,
     pub role: String, // 'user' or 'admin'
 }
@@ -110,10 +118,14 @@ pub async fn update_user(
 
     // Perform updates sequentially if fields are present
     if let Some(new_username) = payload.username {
-        sqlx::query!("UPDATE users SET username = $1 WHERE id = $2", new_username, id)
-            .execute(&pool)
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+        sqlx::query!(
+            "UPDATE users SET username = $1 WHERE id = $2",
+            new_username,
+            id
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     }
 
     if let Some(new_role) = payload.role {

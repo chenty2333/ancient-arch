@@ -1,16 +1,16 @@
 // tests/api_tests.rs
 
-use backend::routes;
+use backend::{config::Config, routes, state::AppState};
 use sqlx::postgres::PgPoolOptions;
-use std::net::TcpListener;
 
 /// Helper function to spawn the app on a random port for testing.
 /// Returns the base URL (e.g., "http://127.0.0.1:12345").
 async fn spawn_app() -> String {
     // Note: For Postgres, you must have a running database.
     // We'll read from DATABASE_URL environment variable.
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://user:password@localhost:5432/ancient_arch_test".to_string());
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://user:password@localhost:5432/ancient_arch_test".to_string()
+    });
 
     // 1. Create a pool
     let pool = PgPoolOptions::new()
@@ -25,18 +25,33 @@ async fn spawn_app() -> String {
         .await
         .expect("Failed to migrate database");
 
-    // 3. Create the router with the test pool
-    let app = routes::create_router(pool);
+    // 3. Create test configuration and state
+    let config = Config {
+        database_url: database_url.clone(),
+        jwt_secret: "test_secret_for_integration_tests".to_string(),
+        jwt_expiration: 600, // 10 minutes for tests
+        rust_log: "error".to_string(),
+        admin_username: None,
+        admin_password: None,
+    };
 
-    // 4. Bind to port 0 to get a random available port
+    let state = AppState {
+        pool,
+        config,
+    };
+
+    // 4. Create the router with the app state
+    let app = routes::create_router(state);
+
+    // 5. Bind to port 0 to get a random available port
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("Failed to bind random port");
-    
+
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
 
-    // 5. Spawn the server in the background
+    // 6. Spawn the server in the background
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
@@ -66,7 +81,8 @@ async fn register_works() {
     // Arrange
     let address = spawn_app().await;
     let client = reqwest::Client::new();
-    let unique_name = format!("user_{}", uuid::Uuid::new_v4());
+    // Truncate UUID to ensure username length < 20
+    let unique_name = format!("u_{}", &uuid::Uuid::new_v4().to_string()[..8]);
 
     // Act
     let response = client
@@ -93,7 +109,7 @@ async fn register_fails_validation() {
     let response = client
         .post(&format!("{}/api/auth/register", address))
         .json(&serde_json::json!({
-            "username": "yo", 
+            "username": "yo",
             "password": "password123"
         }))
         .send()

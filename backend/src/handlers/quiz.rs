@@ -165,9 +165,7 @@ pub async fn submit_paper(
 }
 
 /// Retrieves the top 5 high scores from the leaderboard.
-pub async fn get_leaderboard(
-    State(pool): State<PgPool>,
-) -> Result<impl IntoResponse, AppError> {
+pub async fn get_leaderboard(State(pool): State<PgPool>) -> Result<impl IntoResponse, AppError> {
     let leaderboard = sqlx::query_as!(
         LeaderboardEntry,
         r#"

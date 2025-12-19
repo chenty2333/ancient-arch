@@ -1,16 +1,19 @@
 // src/routes.rs
 
-use std::sync::Arc;
+// use std::sync::Arc;
 
 use axum::{
-    Router, http::Method, middleware, routing::{delete, get, post, put}
+    Router,
+    http::Method,
+    middleware,
+    routing::{delete, get, post, put},
 };
-use sqlx::PgPool;
-use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
+// use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
     handlers::{admin, architecture, auth, quiz},
+    state::AppState,
     utils::jwt::{admin_middleware, auth_middleware},
 };
 
@@ -19,7 +22,7 @@ use crate::{
 /// * Merges all sub-routers (auth, architecture, quiz, admin).
 /// * Applies global middleware (Trace, CORS).
 /// * Injects global state (Database Pool).
-pub fn create_router(pool: PgPool) -> Router {
+pub fn create_router(state: AppState) -> Router {
     let origins = [
         "http://localhost:3000".parse().unwrap(),
         "http://127.0.0.1:3000".parse().unwrap(),
@@ -56,7 +59,10 @@ pub fn create_router(pool: PgPool) -> Router {
         .merge(
             Router::new()
                 .route("/submit", post(quiz::submit_paper))
-                .layer(middleware::from_fn(auth_middleware)),
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    auth_middleware,
+                )),
         );
 
     let admin_routes = Router::new()
@@ -77,7 +83,10 @@ pub fn create_router(pool: PgPool) -> Router {
         )
         // Double middleware protection: Auth first, then Admin check
         .layer(middleware::from_fn(admin_middleware))
-        .layer(middleware::from_fn(auth_middleware));
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
 
     Router::new()
         .nest("/api/auth", auth_routes)
@@ -88,5 +97,5 @@ pub fn create_router(pool: PgPool) -> Router {
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         // .layer(GovernorLayer::new(governor_conf))
-        .with_state(pool)
+        .with_state(state)
 }

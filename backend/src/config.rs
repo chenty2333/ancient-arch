@@ -12,6 +12,12 @@ pub struct Config {
     pub jwt_secret: String,
     /// Logging level (e.g., "info", "debug").
     pub rust_log: String,
+    /// JWT expiration time in seconds (default: 3600).
+    pub jwt_expiration: u64,
+    /// Admin username for initial seeding.
+    pub admin_username: Option<String>,
+    /// Admin password for initial seeding.
+    pub admin_password: Option<String>,
 }
 
 impl Config {
@@ -26,10 +32,21 @@ impl Config {
 
         let rust_log = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
 
+        let jwt_expiration = env::var("JWT_EXPIRATION")
+            .unwrap_or_else(|_| "3600".to_string())
+            .parse()
+            .expect("JWT_EXPIRATION must be a number");
+
+        let admin_username = env::var("ADMIN_USERNAME").ok();
+        let admin_password = env::var("ADMIN_PASSWORD").ok();
+
         Self {
             database_url,
             jwt_secret,
             rust_log,
+            jwt_expiration,
+            admin_username,
+            admin_password,
         }
     }
 }

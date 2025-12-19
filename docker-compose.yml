@@ -26,6 +26,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-ancient_arch}
       RUST_LOG: ${RUST_LOG:-info}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-this-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     ports:
       - "3000:3000"
 

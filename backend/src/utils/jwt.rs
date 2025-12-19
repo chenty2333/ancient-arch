@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::{
     body::Body,
+    extract::State,
     http::{Request, StatusCode, header},
     middleware::Next,
     response::Response,
@@ -29,15 +30,19 @@ pub struct Claims {
 /// Arguments:
 /// * `id`: User ID.
 /// * `role`: User role.
-pub fn sign_jwt(id: i64, _username: &str, role: &str) -> Result<String, AppError> {
-    let config = Config::from_env();
-
-    // Calculate expiration: current time + 1 hour
+pub fn sign_jwt(
+    id: i64,
+    _username: &str,
+    role: &str,
+    secret: &str,
+    expiration_seconds: u64,
+) -> Result<String, AppError> {
+    // Calculate expiration: current time + expiration_seconds
     let expiration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
         .as_secs() as usize
-        + 60 * 60;
+        + expiration_seconds as usize;
 
     let claims = Claims {
         sub: id.to_string(), // Store User ID in 'sub' claim
@@ -48,7 +53,7 @@ pub fn sign_jwt(id: i64, _username: &str, role: &str) -> Result<String, AppError
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
+        &EncodingKey::from_secret(secret.as_bytes()),
     )
     .map_err(|e| AppError::InternalServerError(e.to_string()))
 }
@@ -56,12 +61,10 @@ pub fn sign_jwt(id: i64, _username: &str, role: &str) -> Result<String, AppError
 /// Verifies and decodes a JWT string.
 ///
 /// Returns the `Claims` if valid, otherwise returns an `AppError`.
-pub fn verify_jwt(token: &str) -> Result<Claims, AppError> {
-    let config = Config::from_env();
-
+pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, AppError> {
     let token_data = decode(
         token,
-        &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
+        &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::default(),
     )
     .map_err(|_| AppError::AuthError("Invalid token".to_string()))?;
@@ -74,7 +77,11 @@ pub fn verify_jwt(token: &str) -> Result<Claims, AppError> {
 /// Intercepts requests, validates the 'Authorization: Bearer <token>' header.
 /// If valid, injects `Claims` into the request extensions for handlers to use.
 /// If invalid, returns 401 Unauthorized.
-pub async fn auth_middleware(mut req: Request<Body>, next: Next) -> Result<Response, StatusCode> {
+pub async fn auth_middleware(
+    State(config): State<Config>,
+    mut req: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
     let auth_header = req
         .headers()
         .get(header::AUTHORIZATION)
@@ -85,7 +92,7 @@ pub async fn auth_middleware(mut req: Request<Body>, next: Next) -> Result<Respo
         _ => return Err(StatusCode::UNAUTHORIZED),
     };
 
-    match verify_jwt(token) {
+    match verify_jwt(token, &config.jwt_secret) {
         Ok(claims) => {
             req.extensions_mut().insert(claims);
             Ok(next.run(req).await)
