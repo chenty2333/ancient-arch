@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            id as \"id!\", \n            username, \n            password, \n            role, \n            is_verified,\n            created_at::TEXT as \"created_at: String\"\n        FROM users\n        WHERE username = $1\n        ",
+  "query": "\n        SELECT\n        id, username, password, role, is_verified,\n        created_at\n        FROM users\n        ORDER BY id DESC\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id!",
+        "name": "id",
         "type_info": "Int8"
       },
       {
@@ -30,14 +30,12 @@
       },
       {
         "ordinal": 5,
-        "name": "created_at: String",
-        "type_info": "Text"
+        "name": "created_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": [
-        "Text"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -45,8 +43,8 @@
       false,
       false,
       false,
-      null
+      true
     ]
   },
-  "hash": "c678f9a183223e840ee7d6dc4c54ec72704f9e7354eaf3e05a492ebd7a9a84e9"
+  "hash": "0eae50ad914d2dd0e094af42d307122b4418e8954b1ecae437b34ab6cdc6d0fa"
 }

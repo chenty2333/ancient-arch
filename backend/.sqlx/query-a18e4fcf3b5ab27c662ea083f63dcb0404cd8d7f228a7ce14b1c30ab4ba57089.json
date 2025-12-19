@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            id,\n            type as \"question_type\",\n            content,\n            options as \"options: sqlx::types::Json<Vec<String>>\",\n            answer,\n            analysis,\n            created_at::TEXT as \"created_at: String\"\n        FROM questions\n        WHERE type = 'multiple'\n        ORDER BY RANDOM()\n        LIMIT 4\n        ",
+  "query": "\n        SELECT\n            id,\n            type as \"question_type\",\n            content,\n            options as \"options: sqlx::types::Json<Vec<String>>\",\n            answer,\n            analysis,\n            created_at\n        FROM questions\n        WHERE type = 'multiple'\n        ORDER BY RANDOM()\n        LIMIT 4\n        ",
   "describe": {
     "columns": [
       {
@@ -35,8 +35,8 @@
       },
       {
         "ordinal": 6,
-        "name": "created_at: String",
-        "type_info": "Text"
+        "name": "created_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -49,8 +49,8 @@
       false,
       false,
       true,
-      null
+      true
     ]
   },
-  "hash": "b019dea6f895a911400ce36676c21297235738da1395790a10d1ea13526978ce"
+  "hash": "a18e4fcf3b5ab27c662ea083f63dcb0404cd8d7f228a7ce14b1c30ab4ba57089"
 }

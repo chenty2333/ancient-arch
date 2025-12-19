@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n        id, username, password, role, is_verified,\n        created_at::TEXT as \"created_at: String\"\n        FROM users\n        ORDER BY id DESC\n        ",
+  "query": "\n        INSERT INTO users (username, password)\n        VALUES ($1, $2)\n        RETURNING id, username, password, role, is_verified, created_at\n        ",
   "describe": {
     "columns": [
       {
@@ -30,12 +30,15 @@
       },
       {
         "ordinal": 5,
-        "name": "created_at: String",
-        "type_info": "Text"
+        "name": "created_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text",
+        "Text"
+      ]
     },
     "nullable": [
       false,
@@ -43,8 +46,8 @@
       false,
       false,
       false,
-      null
+      true
     ]
   },
-  "hash": "c365aa45c80f9e20ebc691a6db62c79c92d32c794ea7e943fe919d0b17af2e48"
+  "hash": "914f7dd47f14ab1f297a0d95908c76aa85f8532da84a700f2189b5b747f2b3cb"
 }

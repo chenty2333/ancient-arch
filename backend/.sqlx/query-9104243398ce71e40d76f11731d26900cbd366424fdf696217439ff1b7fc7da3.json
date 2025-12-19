@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id,\n            type as \"question_type\",\n            content,\n            options as \"options: sqlx::types::Json<Vec<String>>\",\n            answer,\n            analysis,\n            created_at\n        FROM questions\n        WHERE type = 'single'\n        ORDER BY RANDOM()\n        LIMIT 6\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "question_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "options: sqlx::types::Json<Vec<String>>",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "answer",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "analysis",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "9104243398ce71e40d76f11731d26900cbd366424fdf696217439ff1b7fc7da3"
+}
