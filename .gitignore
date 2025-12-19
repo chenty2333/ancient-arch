@@ -9,7 +9,6 @@ Thumbs.db
 
 # Local environment
 .env
-.env.*
 
 # Nginx Certificates (Production)
 nginx/certs/*.pem
