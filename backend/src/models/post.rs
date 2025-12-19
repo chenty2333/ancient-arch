@@ -18,6 +18,14 @@ pub struct Post {
     pub likes_count: i32,
     pub comments_count: i32,
     pub favorites_count: i32,
+
+    /// UI helper: whether the current user has liked this post.
+    /// Default to false, populated only in specific queries.
+    #[serde(default)]
+    pub is_liked: bool,
+    /// UI helper: whether the current user has favorited this post.
+    #[serde(default)]
+    pub is_favorited: bool,
 }
 
 /// DTO for creating a new post.
@@ -42,4 +50,7 @@ pub struct PostListParams {
 
     /// Number of items to return (default: 20, max: 100).
     pub limit: Option<i64>,
+
+    /// Sort order: 'new' (default) or 'hot'.
+    pub sort: Option<String>,
 }

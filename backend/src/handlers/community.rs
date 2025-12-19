@@ -86,43 +86,59 @@ pub async fn list_posts(
     State(pool): State<PgPool>,
     Query(params): Query<PostListParams>,
 ) -> Result<impl IntoResponse, AppError> {
-    let limit = params.limit.unwrap_or(20).min(100); // Default 20, max 100
+    let limit = params.limit.unwrap_or(20).min(100);
+    let sort = params.sort.unwrap_or_else(|| "new".to_string());
 
-    // Since our database column created_at is TIMESTAMPTZ, sqlx maps it to DateTime<Utc> or NaiveDateTime depending on config.
-    // Our Post struct uses NaiveDateTime.
-    // But for the query parameter (cursor), we use DateTime<Utc> to handle the input cleanly.
-    // We need to pass the cursor as matching the DB type.
-
-    // NOTE: Because we reverted Post struct to use NaiveDateTime (due to issues),
-    // but the DB column is now TIMESTAMPTZ (after migration),
-    // SQLx might expect comparison with equivalent types.
-    // TIMESTAMPTZ <-> DateTime<Utc> is standard.
-    // Let's see if SQLx handles Option<DateTime<Utc>> against TIMESTAMPTZ correctly in the macro.
-
-    let posts = sqlx::query_as!(
-        Post,
-        r#"
-        SELECT 
-            id, user_id, title, content, 
-            created_at,
-            updated_at,
-            deleted_at,
-            likes_count, comments_count, favorites_count
-        FROM posts
-        WHERE deleted_at IS NULL
-          AND ($1::TIMESTAMPTZ IS NULL OR created_at < $1)
-        ORDER BY created_at DESC
-        LIMIT $2
-        "#,
-        params.cursor,
-        limit
-    )
-    .fetch_all(&pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to list posts: {:?}", e);
-        AppError::InternalServerError(e.to_string())
-    })?;
+    let posts = if sort == "hot" {
+        sqlx::query_as!(
+            Post,
+            r#"
+            SELECT 
+                id, user_id, title, content, 
+                created_at, updated_at, deleted_at,
+                likes_count, comments_count, favorites_count,
+                FALSE as "is_liked!", FALSE as "is_favorited!"
+            FROM posts
+            WHERE deleted_at IS NULL
+            ORDER BY (
+                (likes_count * 5 + comments_count * 3 + favorites_count * 10)::FLOAT / 
+                POW(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600 + 2, 1.5)
+            ) DESC
+            LIMIT $1
+            "#,
+            limit
+        )
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to list posts (hot): {:?}", e);
+            AppError::InternalServerError(e.to_string())
+        })?
+    } else {
+        sqlx::query_as!(
+            Post,
+            r#"
+            SELECT 
+                id, user_id, title, content, 
+                created_at, updated_at, deleted_at,
+                likes_count, comments_count, favorites_count,
+                FALSE as "is_liked!", FALSE as "is_favorited!"
+            FROM posts
+            WHERE deleted_at IS NULL
+              AND ($1::TIMESTAMPTZ IS NULL OR created_at < $1)
+            ORDER BY created_at DESC
+            LIMIT $2
+            "#,
+            params.cursor,
+            limit
+        )
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to list posts (new): {:?}", e);
+            AppError::InternalServerError(e.to_string())
+        })?
+    };
 
     Ok(Json(posts))
 }
@@ -130,27 +146,56 @@ pub async fn list_posts(
 /// Get a single post by ID.
 pub async fn get_post(
     State(pool): State<PgPool>,
+    claims: Option<Extension<Claims>>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, AppError> {
-    let post = sqlx::query_as!(
-        Post,
-        r#"
-        SELECT 
-            id, user_id, title, content, 
-            created_at,
-            updated_at,
-            deleted_at,
-            likes_count, comments_count, favorites_count
-        FROM posts
-        WHERE id = $1 AND deleted_at IS NULL
-        "#,
-        id
-    )
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| AppError::InternalServerError(e.to_string()))?
-    .ok_or(AppError::NotFound("Post not found".to_string()))?;
+    let user_id = claims.map(|c| c.sub.parse::<i64>().unwrap_or(0));
 
+    let post = if let Some(uid) = user_id {
+        sqlx::query_as!(
+            Post,
+            r#"
+            SELECT 
+                p.id, p.user_id, p.title, p.content, 
+                p.created_at, p.updated_at, p.deleted_at,
+                p.likes_count, p.comments_count, p.favorites_count,
+                (EXISTS (SELECT 1 FROM post_likes WHERE user_id = $2 AND post_id = p.id)) as "is_liked!",
+                (EXISTS (SELECT 1 FROM post_favorites WHERE user_id = $2 AND post_id = p.id)) as "is_favorited!"
+            FROM posts p
+            WHERE p.id = $1 AND p.deleted_at IS NULL
+            "#,
+            id,
+            uid
+        )
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch post details (auth): {:?}", e);
+            AppError::InternalServerError(e.to_string())
+        })?
+    } else {
+        sqlx::query_as!(
+            Post,
+            r#"
+            SELECT 
+                id, user_id, title, content, 
+                created_at, updated_at, deleted_at,
+                likes_count, comments_count, favorites_count,
+                FALSE as "is_liked!", FALSE as "is_favorited!"
+            FROM posts
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+            id
+        )
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch post details: {:?}", e);
+            AppError::InternalServerError(e.to_string())
+        })?
+    };
+
+    let post = post.ok_or(AppError::NotFound("Post not found".to_string()))?;
     Ok(Json(post))
 }
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            id, user_id, title, content, \n            created_at,\n            updated_at,\n            deleted_at,\n            likes_count, comments_count, favorites_count\n        FROM posts\n        WHERE deleted_at IS NULL\n        ORDER BY created_at DESC\n        LIMIT 50\n        ",
+  "query": "\n        SELECT \n            id, user_id, title, content, \n            created_at,\n            updated_at,\n            deleted_at,\n            likes_count, comments_count, favorites_count\n        FROM posts\n        WHERE deleted_at IS NULL\n          AND ($1::TIMESTAMPTZ IS NULL OR created_at < $1)\n        ORDER BY created_at DESC\n        LIMIT $2\n        ",
   "describe": {
     "columns": [
       {
@@ -55,7 +55,10 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
     },
     "nullable": [
       false,
@@ -70,5 +73,5 @@
       false
     ]
   },
-  "hash": "c3aaa07ab9194f9e8462aea2a131f72711ab530e9b946ebe640815ea75eb5de8"
+  "hash": "4b95e3c23bf2171aff37ef3010248988055eeda3a2a851efd271fe32496fd718"
 }

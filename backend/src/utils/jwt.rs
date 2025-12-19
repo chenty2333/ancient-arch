@@ -1,5 +1,3 @@
-// src/utils/jwt.rs
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::{
@@ -26,10 +24,6 @@ pub struct Claims {
 }
 
 /// Signs a new JWT for the user.
-///
-/// Arguments:
-/// * `id`: User ID.
-/// * `role`: User role.
 pub fn sign_jwt(
     id: i64,
     _username: &str,
@@ -37,7 +31,6 @@ pub fn sign_jwt(
     secret: &str,
     expiration_seconds: u64,
 ) -> Result<String, AppError> {
-    // Calculate expiration: current time + expiration_seconds
     let expiration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
@@ -45,7 +38,7 @@ pub fn sign_jwt(
         + expiration_seconds as usize;
 
     let claims = Claims {
-        sub: id.to_string(), // Store User ID in 'sub' claim
+        sub: id.to_string(),
         role: role.to_owned(),
         exp: expiration,
     };
@@ -58,9 +51,16 @@ pub fn sign_jwt(
     .map_err(|e| AppError::InternalServerError(e.to_string()))
 }
 
+/// Helper to extract and verify JWT from Authorization header.
+pub fn extract_claims_from_header(headers: &header::HeaderMap, secret: &str) -> Option<Claims> {
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .filter(|auth| auth.starts_with("Bearer "))
+        .and_then(|auth| verify_jwt(&auth[7..], secret).ok())
+}
+
 /// Verifies and decodes a JWT string.
-///
-/// Returns the `Claims` if valid, otherwise returns an `AppError`.
 pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, AppError> {
     let token_data = decode(
         token,
@@ -72,39 +72,33 @@ pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, AppError> {
     Ok(token_data.claims)
 }
 
-/// Axum Middleware: Authentication.
-///
-/// Intercepts requests, validates the 'Authorization: Bearer <token>' header.
-/// If valid, injects `Claims` into the request extensions for handlers to use.
-/// If invalid, returns 401 Unauthorized.
+/// Mandatory Authentication Middleware.
 pub async fn auth_middleware(
     State(config): State<Config>,
     mut req: Request<Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let auth_header = req
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok());
-
-    let token = match auth_header {
-        Some(header) if header.starts_with("Bearer ") => &header[7..],
-        _ => return Err(StatusCode::UNAUTHORIZED),
-    };
-
-    match verify_jwt(token, &config.jwt_secret) {
-        Ok(claims) => {
-            req.extensions_mut().insert(claims);
-            Ok(next.run(req).await)
-        }
-        Err(_) => Err(StatusCode::UNAUTHORIZED),
+    if let Some(claims) = extract_claims_from_header(req.headers(), &config.jwt_secret) {
+        req.extensions_mut().insert(claims);
+        Ok(next.run(req).await)
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
     }
 }
 
-/// Axum Middleware: Admin Authorization.
-///
-/// Must be used AFTER `auth_middleware`. Checks if the injected `Claims` has 'admin' role.
-/// If not, returns 403 Forbidden.
+/// Optional Authentication Middleware.
+pub async fn optional_auth_middleware(
+    State(config): State<Config>,
+    mut req: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    if let Some(claims) = extract_claims_from_header(req.headers(), &config.jwt_secret) {
+        req.extensions_mut().insert(claims);
+    }
+    Ok(next.run(req).await)
+}
+
+/// Admin Authorization Middleware (Must follow auth_middleware).
 pub async fn admin_middleware(req: Request<Body>, next: Next) -> Result<Response, StatusCode> {
     let claims = req
         .extensions()
