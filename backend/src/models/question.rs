@@ -29,6 +29,16 @@ pub struct Question {
     pub created_at: Option<String>,
 }
 
+/// DTO for sending question to client (excludes answer and analysis).
+#[derive(Debug, Serialize)]
+pub struct PublicQuestion {
+    pub id: i64,
+    #[serde(rename = "type")]
+    pub question_type: String,
+    pub content: String,
+    pub options: Json<Vec<String>>,
+}
+
 /// DTO for creating a new question.
 #[derive(Debug, Deserialize)]
 pub struct CreateQuestionRequest {

@@ -19,6 +19,7 @@ use crate::{
 struct AnswerKey {
     id: i64,
     answer: String,
+    #[allow(dead_code)]
     question_type: String,
 }
 

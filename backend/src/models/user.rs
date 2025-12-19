@@ -20,6 +20,9 @@ pub struct User {
     /// User role: 'user' or 'admin'.
     pub role: String,
 
+    /// Whether the user has passed the qualification exam.
+    pub is_verified: bool,
+
     pub created_at: Option<String>,
 }
 

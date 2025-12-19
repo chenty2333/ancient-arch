@@ -34,7 +34,7 @@ pub async fn register(
         r#"
         INSERT INTO users (username, password)
         VALUES ($1, $2)
-        RETURNING id, username, password, role, created_at::TEXT as "created_at: String"
+        RETURNING id, username, password, role, is_verified, created_at::TEXT as "created_at: String"
         "#,
         payload.username,
         hashed_password
@@ -71,6 +71,7 @@ pub async fn login(
             username, 
             password, 
             role, 
+            is_verified,
             created_at::TEXT as "created_at: String"
         FROM users
         WHERE username = $1
@@ -102,6 +103,7 @@ pub async fn login(
 
     Ok(Json(json!({
         "token": token,
-        "type": "Bearer"
+        "type": "Bearer",
+        "is_verified": user.is_verified
     })))
 }

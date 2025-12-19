@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            id as \"id!\", \n            username, \n            password, \n            role, \n            created_at::TEXT as \"created_at: String\"\n        FROM users\n        WHERE username = $1\n        ",
+  "query": "\n        SELECT \n            id as \"id!\", \n            username, \n            password, \n            role, \n            is_verified,\n            created_at::TEXT as \"created_at: String\"\n        FROM users\n        WHERE username = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -25,6 +25,11 @@
       },
       {
         "ordinal": 4,
+        "name": "is_verified",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
         "name": "created_at: String",
         "type_info": "Text"
       }
@@ -39,8 +44,9 @@
       false,
       false,
       false,
+      false,
       null
     ]
   },
-  "hash": "ffeb64bc2e77b248d35cb10bc14c81e58cba002ff0000dd9932fdbecf091df1b"
+  "hash": "c678f9a183223e840ee7d6dc4c54ec72704f9e7354eaf3e05a492ebd7a9a84e9"
 }

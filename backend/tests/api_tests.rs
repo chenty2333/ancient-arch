@@ -2,15 +2,14 @@
 
 use backend::{config::Config, routes, state::AppState};
 use sqlx::postgres::PgPoolOptions;
+use std::collections::HashMap;
 
 /// Helper function to spawn the app on a random port for testing.
 /// Returns the base URL (e.g., "http://127.0.0.1:12345").
 async fn spawn_app() -> String {
     // Note: For Postgres, you must have a running database.
     // We'll read from DATABASE_URL environment variable.
-    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-        "postgres://user:password@localhost:5432/ancient_arch_test".to_string()
-    });
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     // 1. Create a pool
     let pool = PgPoolOptions::new()
@@ -35,10 +34,7 @@ async fn spawn_app() -> String {
         admin_password: None,
     };
 
-    let state = AppState {
-        pool,
-        config,
-    };
+    let state = AppState { pool, config };
 
     // 4. Create the router with the app state
     let app = routes::create_router(state);
@@ -118,4 +114,122 @@ async fn register_fails_validation() {
 
     // Assert
     assert_eq!(response.status().as_u16(), 400);
+}
+
+#[tokio::test]
+async fn test_qualification_flow() {
+    // Arrange
+    let address = spawn_app().await;
+    let client = reqwest::Client::new();
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    // Connect to DB for Seeding
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&database_url)
+        .await
+        .expect("Failed to connect to test DB");
+
+    // 0. Seed questions
+    for i in 0..20 {
+        sqlx::query!(
+            r#"
+            INSERT INTO questions (type, content, options, answer, analysis)
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+            "single",
+            format!("Question {}", i),
+            serde_json::json!(["A", "B", "C", "D"]),
+            "A",
+            "Analysis"
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    // 1. Register
+    let username = format!("u_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+    let password = "password123";
+
+    client
+        .post(&format!("{}/api/auth/register", address))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password
+        }))
+        .send()
+        .await
+        .expect("Register failed");
+
+    // 2. Login to get token and check initial status
+    let login_resp = client
+        .post(&format!("{}/api/auth/login", address))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password
+        }))
+        .send()
+        .await
+        .expect("Login failed")
+        .json::<serde_json::Value>()
+        .await
+        .expect("Failed to parse login json");
+
+    let token = login_resp["token"].as_str().expect("Token not found");
+    assert_eq!(
+        login_resp["is_verified"], false,
+        "User should initially be unverified"
+    );
+
+    // 3. Fetch Exam
+    let exam_resp = client
+        .get(&format!("{}/api/auth/qualification", address))
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .expect("Fetch exam failed");
+
+    assert_eq!(exam_resp.status().as_u16(), 200);
+
+    let questions: Vec<serde_json::Value> = exam_resp.json().await.unwrap();
+    assert!(questions.len() > 0);
+
+    // 4. Submit Answers (All 'A', which is correct per our seed)
+    let mut answers = HashMap::new();
+    for q in questions {
+        let id = q["id"].as_i64().unwrap();
+        answers.insert(id, "A".to_string());
+    }
+
+    let submit_resp = client
+        .post(&format!("{}/api/auth/qualification/submit", address))
+        .header("Authorization", format!("Bearer {}", token))
+        .json(&serde_json::json!({ "answers": answers }))
+        .send()
+        .await
+        .expect("Submit failed");
+
+    assert_eq!(submit_resp.status().as_u16(), 200);
+    let result: serde_json::Value = submit_resp.json().await.unwrap();
+    assert_eq!(result["passed"], true);
+
+    // 5. Login again to verify status updated
+    let login_resp_2 = client
+        .post(&format!("{}/api/auth/login", address))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password
+        }))
+        .send()
+        .await
+        .expect("Login failed")
+        .json::<serde_json::Value>()
+        .await
+        .expect("Failed to parse login json");
+
+    assert_eq!(
+        login_resp_2["is_verified"], true,
+        "User should be verified after passing exam"
+    );
 }

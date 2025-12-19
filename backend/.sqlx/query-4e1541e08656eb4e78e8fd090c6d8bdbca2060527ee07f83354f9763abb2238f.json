@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO users (username, password, role) VALUES ($1, $2, 'admin')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e1541e08656eb4e78e8fd090c6d8bdbca2060527ee07f83354f9763abb2238f"
+}

@@ -12,7 +12,7 @@ use axum::{
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    handlers::{admin, architecture, auth, quiz},
+    handlers::{admin, architecture, auth, qualification, quiz},
     state::AppState,
     utils::jwt::{admin_middleware, auth_middleware},
 };
@@ -46,7 +46,17 @@ pub fn create_router(state: AppState) -> Router {
 
     let auth_routes = Router::new()
         .route("/register", post(auth::register))
-        .route("/login", post(auth::login));
+        .route("/login", post(auth::login))
+        // Qualification routes (Protected)
+        .merge(
+            Router::new()
+                .route("/qualification", get(qualification::generate_exam))
+                .route("/qualification/submit", post(qualification::submit_exam))
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    auth_middleware,
+                )),
+        );
 
     let architecture_routes = Router::new()
         .route("/", get(architecture::list_architectures))
