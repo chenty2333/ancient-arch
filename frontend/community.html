@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>社区 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html">百科</a>
+            <a href="community.html" class="active">社区</a>
+            <a href="quiz.html">趣味答题</a>
+            <a href="qualification.html">资格认证</a>
+            <a href="profile.html" class="auth-only hidden">个人中心</a>
+            <a href="login.html" class="guest-only">登录</a>
+            <a href="#" onclick="logout()" class="auth-only hidden">退出</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="flex-between">
+            <h1>社区讨论</h1>
+            <button class="auth-only hidden" onclick="window.location.href='create-post.html'">发布帖子 +</button>
+        </div>
+
+        <div id="sort-filter" style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
+            <button onclick="filterSort('new')" class="secondary active">最新发布</button>
+            <button onclick="filterSort('hot')" class="secondary">热门讨论</button>
+        </div>
+
+        <div id="post-list" style="margin-top: 2rem;">
+            <!-- 加载帖子 -->
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        async function loadPosts(sort = "new") {
+            try {
+                // 后端 API: GET /api/posts?limit=20&sort=new|hot
+                const data = await request(`/posts?limit=20&sort=${sort}`);
+                const list = document.getElementById("post-list");
+                
+                if (!data || data.length === 0) {
+                    list.innerHTML = "<p style='color:var(--gray-dark)'>暂无讨论内容。</p>";
+                    return;
+                }
+
+                list.innerHTML = data.map(post => `
+                    <div class="card" style="margin-bottom: 1rem; cursor: pointer" onclick="window.location.href='post-detail.html?id=${post.id}'">
+                        <div class="flex-between">
+                            <h3 style="margin: 0">${post.title}</h3>
+                            <span style="font-size: 0.8rem; color: var(--gray-dark)">${new Date(post.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <p style="font-size: 0.9rem; color: var(--gray-dark); margin: 0.5rem 0;">
+                            ${post.content.substring(0, 150)}${post.content.length > 150 ? '...' : ''}
+                        </p>
+                        <div style="font-size: 0.75rem; color: var(--gray-dark)">
+                            用户 ID: ${post.user_id} · 赞 ${post.likes_count} · 评论 ${post.comments_count}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {}
+        }
+
+        function filterSort(sortType) {
+            const buttons = document.querySelectorAll("#sort-filter button");
+            buttons.forEach(b => b.classList.remove("active"));
+            event.target.classList.add("active");
+            loadPosts(sortType);
+        }
+
+        loadPosts();
+    </script>
+</body>
+</html>

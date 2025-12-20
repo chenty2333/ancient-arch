@@ -33,12 +33,16 @@ pub struct Post {
 pub struct CreatePostRequest {
     #[validate(length(
         min = 1,
-        max = 200,
-        message = "Title length must be between 1 and 200 chars"
+        max = 100,
+        message = "Title length must be between 1 and 100 chars"
     ))]
     pub title: String,
 
-    #[validate(length(min = 1, message = "Content cannot be empty"))]
+    #[validate(length(
+        min = 1,
+        max = 10000,
+        message = "Content length must be between 1 and 10000 chars"
+    ))]
     pub content: String,
 }
 

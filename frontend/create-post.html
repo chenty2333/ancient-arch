@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>发布帖子 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="community.html">返回社区</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 700px;">
+        <h1>发起新讨论</h1>
+        <form id="post-form">
+            <div class="form-group">
+                <label>标题</label>
+                <input type="text" id="title" required placeholder="请输入引人入胜的标题">
+            </div>
+            <div class="form-group">
+                <label>内容</label>
+                <textarea id="content" rows="10" required placeholder="分享你的发现或见解..." style="width:100%; padding:0.6rem; border:1px solid var(--gray-mid); font-family:inherit"></textarea>
+            </div>
+            <button type="submit">发布</button>
+        </form>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        document.getElementById("post-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const title = document.getElementById("title").value;
+            const content = document.getElementById("content").value;
+
+            try {
+                const res = await request("/posts", {
+                    method: "POST",
+                    body: JSON.stringify({ title, content })
+                });
+                
+                if (res && res.id) {
+                    statusBar.show("发布成功！", "info");
+                    setTimeout(() => window.location.href = "community.html", 1000);
+                }
+            } catch (err) {
+                // error handled by core.js
+            }
+        });
+    </script>
+</body>
+</html>

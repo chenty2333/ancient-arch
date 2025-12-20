@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>建筑详情 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html">返回百科</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="arch-content" class="hidden">
+            <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 3rem; margin-top: 0;">
+                <!-- 左侧：图片与描述 -->
+                <div>
+                    <img id="detail-img" src="" alt="Cover" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 2rem;">
+                    
+                    <h2>建筑描述</h2>
+                    <p id="detail-desc" style="white-space: pre-wrap; line-height: 1.8; color: var(--text);"></p>
+                </div>
+
+                <!-- 右侧：信息卡片 -->
+                <div>
+                    <div class="card" style="position: sticky; top: 100px;">
+                        <h1 id="detail-name" style="font-size: 1.5rem; margin-bottom: 1rem;"></h1>
+                        
+                        <div style="margin-bottom: 0.8rem;">
+                            <span style="color: var(--gray-dark); font-size: 0.9rem;">朝代</span>
+                            <div id="detail-dynasty" style="font-weight: bold;"></div>
+                        </div>
+
+                        <div style="margin-bottom: 0.8rem;">
+                            <span style="color: var(--gray-dark); font-size: 0.9rem;">分类</span>
+                            <div id="detail-category" style="font-weight: bold;"></div>
+                        </div>
+
+                        <div style="margin-bottom: 0.8rem;">
+                            <span style="color: var(--gray-dark); font-size: 0.9rem;">地点</span>
+                            <div id="detail-location" style="font-weight: bold;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id");
+
+        async function loadDetail() {
+            if (!id) return;
+            try {
+                const data = await request(`/architectures/${id}`);
+                
+                document.title = `${data.name} | 建筑详情`;
+                document.getElementById("detail-name").textContent = data.name;
+                document.getElementById("detail-dynasty").textContent = data.dynasty;
+                document.getElementById("detail-category").textContent = data.category;
+                document.getElementById("detail-location").textContent = data.location;
+                document.getElementById("detail-desc").textContent = data.description;
+                document.getElementById("detail-img").src = data.cover_img || 'https://placehold.co/800x600?text=No+Image';
+
+                document.getElementById("arch-content").classList.remove("hidden");
+            } catch(e) {}
+        }
+        loadDetail();
+    </script>
+</body>
+</html>

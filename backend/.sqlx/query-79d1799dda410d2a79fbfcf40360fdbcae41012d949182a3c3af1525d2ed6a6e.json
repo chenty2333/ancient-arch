@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, username, password, role, is_verified, created_at\n        FROM users\n        ORDER BY id DESC\n        ",
+  "query": "\n        SELECT id, username, '********' as \"password!\", role, is_verified, created_at\n        FROM users\n        ORDER BY id DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -15,7 +15,7 @@
       },
       {
         "ordinal": 2,
-        "name": "password",
+        "name": "password!",
         "type_info": "Text"
       },
       {
@@ -40,11 +40,11 @@
     "nullable": [
       false,
       false,
-      false,
+      null,
       false,
       false,
       true
     ]
   },
-  "hash": "749c6edb8bbf47955a32a3e6b056ff38607f6f7defbd3f32ab8b8f1b4c665f0d"
+  "hash": "79d1799dda410d2a79fbfcf40360fdbcae41012d949182a3c3af1525d2ed6a6e"
 }

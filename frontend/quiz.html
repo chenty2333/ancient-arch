@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>趣味答题 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html">百科</a>
+            <a href="community.html">社区</a>
+            <a href="quiz.html" class="active">趣味答题</a>
+            <a href="qualification.html">资格认证</a>
+            <a href="profile.html" class="auth-only hidden">个人中心</a>
+            <a href="login.html" class="guest-only">登录</a>
+            <a href="#" onclick="logout()" class="auth-only hidden">退出</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header style="text-align: center; margin-bottom: 3rem;">
+            <h1>古建筑知识挑战</h1>
+            <p style="color: var(--gray-dark)">与全站用户一较高下，测试你的知识储备。</p>
+        </header>
+
+        <div class="grid" style="grid-template-columns: 2fr 1fr; align-items: start;">
+            <!-- 左侧：答题区 -->
+            <div>
+                <div id="quiz-start-panel" class="card" style="text-align: center; padding: 3rem;">
+                    <h3>准备好了吗？</h3>
+                    <p style="margin: 1rem 0;">每次随机生成 10 道题目，计入总积分。</p>
+                    <button onclick="startQuiz()" style="font-size: 1.1rem; padding: 0.8rem 2rem;">开始挑战</button>
+                </div>
+
+                <div id="quiz-panel" class="hidden">
+                    <form id="quiz-form">
+                        <!-- 题目 -->
+                    </form>
+                    <button onclick="submitQuiz()" style="width: 100%; margin-top: 2rem;">提交答案</button>
+                </div>
+            </div>
+
+            <!-- 右侧：排行榜 -->
+            <div>
+                <div class="card" style="background: #fafafa;">
+                    <h3 style="border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-bottom: 1rem;">🏆 积分榜</h3>
+                    <div id="leaderboard">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        let quizToken = "";
+
+        // 加载排行榜
+        async function loadLeaderboard() {
+            try {
+                const list = await request("/quiz/leaderboard");
+                const el = document.getElementById("leaderboard");
+                if (!list || list.length === 0) {
+                    el.innerHTML = "<p>暂无排行数据</p>";
+                    return;
+                }
+                el.innerHTML = list.map((item, idx) => `
+                    <div class="flex-between" style="margin-bottom: 0.8rem; font-size: 0.9rem;">
+                        <span>
+                            <span style="font-weight: bold; width: 20px; display: inline-block; color: ${idx<3 ? '#b00020' : '#888'}">${idx+1}</span>
+                            ${item.username}
+                        </span>
+                        <span style="font-weight: bold;">${item.score}</span>
+                    </div>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function startQuiz() {
+            if (!state.token) {
+                statusBar.show("请先登录", "error");
+                setTimeout(() => window.location.href = "login.html", 1000);
+                return;
+            }
+
+            try {
+                const res = await request("/quiz/generate");
+                if (!res || !res.questions) {
+                    statusBar.show("生成试卷失败", "error");
+                    return;
+                }
+                
+                quizToken = res.exam_token;
+                renderQuiz(res.questions);
+                document.getElementById("quiz-start-panel").classList.add("hidden");
+                document.getElementById("quiz-panel").classList.remove("hidden");
+            } catch(e) {}
+        }
+
+        function renderQuiz(questions) {
+            const form = document.getElementById("quiz-form");
+            form.innerHTML = questions.map((q, idx) => {
+                let opts = q.options;
+                if (typeof opts === 'string') {
+                    try { opts = JSON.parse(opts); } catch(e) {}
+                }
+                return `
+                <div class="card" style="margin-bottom: 1rem;">
+                    <p style="font-weight: bold; margin-bottom: 0.5rem;">${idx+1}. ${q.content}</p>
+                    ${opts.map((opt, i) => `
+                        <label style="display: block; margin: 0.3rem 0; cursor: pointer;">
+                            <input type="radio" name="q-${q.id}" value="${String.fromCharCode(65+i)}">
+                            ${opt}
+                        </label>
+                    `).join('')}
+                </div>
+                `;
+            }).join('');
+        }
+
+        async function submitQuiz() {
+            const form = document.getElementById("quiz-form");
+            const formData = new FormData(form);
+            const answers = {};
+
+            for (let [key, value] of formData.entries()) {
+                const qId = key.split('-')[1];
+                answers[qId] = value;
+            }
+
+            try {
+                const res = await request("/quiz/submit", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        exam_token: quizToken,
+                        answers: answers
+                    })
+                });
+                
+                if (res) {
+                    document.getElementById("quiz-panel").innerHTML = `
+                        <div class="card" style="text-align: center; padding: 2rem;">
+                            <h2>挑战结束</h2>
+                            <div style="font-size: 3rem; font-weight: bold; margin: 1rem 0;">${res.score}分</div>
+                            <p style="color: var(--gray-dark); margin-bottom: 2rem;">正确数: ${res.correct_count}</p>
+                            <div style="display: flex; gap: 1rem; justify-content: center;">
+                                <button onclick="window.location.reload()">再来一次</button>
+                                <button class="secondary" onclick="window.location.href='index.html'">返回首页</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch(e) {}
+        }
+
+        loadLeaderboard();
+    </script>
+</body>
+</html>

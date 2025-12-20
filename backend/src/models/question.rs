@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, types::Json};
+use validator::Validate;
 
 /// Represents the 'questions' table in the database.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
@@ -40,11 +41,28 @@ pub struct PublicQuestion {
 }
 
 /// DTO for creating a new question.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateQuestionRequest {
+    #[validate(length(min = 1, max = 20))]
     pub question_type: String,
+    #[validate(length(min = 1, max = 1000))]
     pub content: String,
+    #[validate(custom(function = validate_options))]
     pub options: Vec<String>,
+    #[validate(length(min = 1, max = 500))]
     pub answer: String,
+    #[validate(length(max = 2000))]
     pub analysis: Option<String>,
+}
+
+fn validate_options(options: &[String]) -> Result<(), validator::ValidationError> {
+    if options.is_empty() {
+        return Err(validator::ValidationError::new("options_cannot_be_empty"));
+    }
+    for opt in options {
+        if opt.len() > 500 {
+            return Err(validator::ValidationError::new("option_too_long"));
+        }
+    }
+    Ok(())
 }

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的帖子 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="profile.html">返回个人中心</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="flex-between">
+            <h1>我发布的帖子</h1>
+            <button onclick="window.location.href='create-post.html'">发布新帖 +</button>
+        </div>
+        <div id="posts-list" style="margin-top: 2rem;">
+            加载中...
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        async function loadMyPosts() {
+            try {
+                const list = await request("/profile/posts");
+                const container = document.getElementById("posts-list");
+                
+                if (!list || list.length === 0) {
+                    container.innerHTML = "<p>您还没有发布过任何帖子。</p>";
+                    return;
+                }
+
+                container.innerHTML = list.map(item => `
+                    <div class="card" style="margin-bottom: 1rem; cursor: pointer;" onclick="window.location.href='post-detail.html?id=${item.id}'">
+                        <div class="flex-between">
+                            <h3 style="margin: 0; font-size: 1.1rem;">${item.title}</h3>
+                            <span style="font-size: 0.8rem; color: var(--gray-dark);">${new Date(item.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="flex-between" style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--gray-dark);">
+                            <span>赞 ${item.likes_count} · 评 ${item.comments_count}</span>
+                            <span>${item.is_liked ? '❤️' : ''}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById("posts-list").innerHTML = "加载失败";
+            }
+        }
+        loadMyPosts();
+    </script>
+</body>
+</html>

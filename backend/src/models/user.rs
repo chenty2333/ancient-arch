@@ -52,21 +52,23 @@ pub struct FavoritePostResponse {
 pub struct CreateUserRequest {
     #[validate(length(
         min = 3,
-        max = 20,
-        message = "Username length must be between 3 and 20 characters."
+        max = 50,
+        message = "Username length must be between 3 and 50 characters."
     ))]
     pub username: String,
     #[validate(length(
         min = 4,
-        max = 20,
-        message = "Password length must be between 4 and 20 characters."
+        max = 128,
+        message = "Password length must be between 4 and 128 characters."
     ))]
     pub password: String,
 }
 
 /// DTO for user login.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
+    #[validate(length(min = 1, max = 50))]
     pub username: String,
+    #[validate(length(min = 1, max = 128))]
     pub password: String,
 }

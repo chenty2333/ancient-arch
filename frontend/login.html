@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>登录 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html">百科</a>
+            <a href="community.html">社区</a>
+            <a href="login.html" class="active">登录</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 400px; margin-top: 5rem;">
+        <h1>欢迎回来</h1>
+        <form id="login-form">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="username" required>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" style="width: 100%">登录</button>
+            <p style="margin-top: 1rem; font-size: 0.8rem; text-align: center; color: var(--gray-dark)">
+                还没有账号？ <a href="register.html" style="color: var(--text)">立即注册</a>
+            </p>
+        </form>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        document.getElementById("login-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            try {
+                const res = await request("/auth/login", {
+                    method: "POST",
+                    body: JSON.stringify({ username, password })
+                });
+                if (res && res.token) {
+                    state.token = res.token;
+                    statusBar.show("登录成功", "info");
+                    setTimeout(() => window.location.href = "index.html", 1000);
+                }
+            } catch (err) {}
+        });
+    </script>
+</body>
+</html>

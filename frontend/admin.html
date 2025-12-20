@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>管理后台 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-nav { display: flex; gap: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+        .admin-nav button { background: none; color: var(--gray-dark); border-bottom: 2px solid transparent; padding-bottom: 0.5rem; }
+        .admin-nav button.active { color: var(--text); border-bottom-color: var(--text); }
+        
+        .review-item { border: 1px solid var(--border); padding: 1.5rem; margin-bottom: 1rem; background: #fff; }
+        .status-pending { color: #f57c00; font-weight: bold; }
+        .status-approved { color: #388e3c; font-weight: bold; }
+        .status-rejected { color: #d32f2f; font-weight: bold; }
+
+        /* 行内表单样式 */
+        .inline-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--border); }
+        .inline-input { width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--gray-mid); }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH ADMIN</a>
+        <div class="links">
+            <a href="index.html">返回前台</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 1000px;">
+        <div class="admin-nav">
+            <button class="active" onclick="switchTab('contributions')">贡献审核</button>
+            <button onclick="switchTab('users')">用户管理</button>
+            <button onclick="switchTab('archs')">建筑管理</button>
+            <button onclick="switchTab('import')">数据导入</button>
+        </div>
+
+        <!-- ... 其他面板 ... -->
+        <div id="tab-contributions">
+            <h2>待审核内容</h2>
+            <div id="contrib-list">加载中...</div>
+        </div>
+
+        <div id="tab-users" class="hidden">
+            <h2>用户列表</h2>
+            <div id="user-list">加载中...</div>
+        </div>
+
+        <div id="tab-archs" class="hidden">
+            <h2>已收录建筑</h2>
+            <div id="arch-list">加载中...</div>
+        </div>
+
+        <!-- 批量导入面板 -->
+        <div id="tab-import" class="hidden">
+            <h2>批量数据导入</h2>
+            
+            <div class="form-group">
+                <label>数据类型</label>
+                <select id="import-type">
+                    <option value="architecture">古建筑 (Architectures)</option>
+                    <option value="question">题库题目 (Questions)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>JSON 数据 (数组格式)</label>
+                <textarea id="import-json" rows="15" style="width:100%; font-family: monospace; font-size: 0.8rem; padding: 1rem;" placeholder='建筑格式参考:
+[
+  {
+    "name": "故宫",
+    "category": "Palace",
+    "dynasty": "明清",
+    "location": "北京",
+    "description": "内容...",
+    "cover_img": "url",
+    "carousel_imgs": []
+  }
+]
+
+题目格式参考:
+[
+  {
+    "question_type": "single",
+    "content": "内容...",
+    "options": ["A", "B", "C", "D"],
+    "answer": "A",
+    "analysis": "解析"
+  }
+]'></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>JSON 数据</label>
+                <textarea id="import-json" rows="15" style="width:100%; font-family: monospace; font-size: 0.8rem; padding: 1rem;" placeholder='[
+  { "name": "故宫", "category": "Palace", ... },
+  { "name": "天坛", "category": "Temple", ... }
+]'></textarea>
+            </div>
+
+            <div id="import-progress" class="hidden" style="margin-bottom: 1rem; padding: 1rem; background: var(--gray-light); border-left: 4px solid var(--text);">
+                <div id="import-status-text">准备中...</div>
+                <div style="width: 100%; height: 4px; background: #ddd; margin-top: 10px;">
+                    <div id="import-bar" style="width: 0%; height: 100%; background: var(--text); transition: width 0.2s;"></div>
+                </div>
+                <pre id="import-log" style="font-size: 0.7rem; margin-top: 10px; max-height: 100px; overflow-y: auto; color: #666;"></pre>
+            </div>
+
+            <button id="btn-start-import" onclick="startBulkImport()" style="width: 100%;">开始批量导入</button>
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        // 状态变量
+        let currentTab = 'contributions';
+
+        async function initAdmin() {
+            // ... (保持不变)
+            try {
+                const me = await request("/profile/me");
+                if (me.role !== 'admin') {
+                    window.location.href = "index.html";
+                    return;
+                }
+                loadContributions();
+            } catch(e) {
+                window.location.href = "login.html";
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll(".admin-nav button").forEach(b => b.classList.remove("active"));
+            event.target.classList.add("active");
+            
+            ["contributions", "users", "archs", "import"].forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) el.classList.add("hidden");
+            });
+            
+            document.getElementById(`tab-${tabName}`).classList.remove("hidden");
+            
+            if (tabName === 'contributions') loadContributions();
+            if (tabName === 'users') loadUsers();
+            if (tabName === 'archs') loadArchs();
+        }
+
+        // --- 批量导入逻辑 ---
+
+        async function startBulkImport() {
+            const type = document.getElementById("import-type").value;
+            const jsonText = document.getElementById("import-json").value;
+            const btn = document.getElementById("btn-start-import");
+            const progressArea = document.getElementById("import-progress");
+            const statusText = document.getElementById("import-status-text");
+            const bar = document.getElementById("import-bar");
+            const log = document.getElementById("import-log");
+
+            let data;
+            try {
+                data = JSON.parse(jsonText);
+                if (!Array.isArray(data)) throw new Error("数据必须是一个数组");
+            } catch (e) {
+                statusBar.show("JSON 格式错误: " + e.message, "error");
+                return;
+            }
+
+            // UI 状态切换
+            btn.disabled = true;
+            progressArea.classList.remove("hidden");
+            log.textContent = "开始导入...\n";
+            
+            const total = data.length;
+            let success = 0;
+            let failed = 0;
+
+            const endpoint = type === 'architecture' ? '/admin/architectures' : '/admin/questions';
+
+            for (let i = 0; i < total; i++) {
+                const item = data[i];
+                const itemLabel = item.name || item.content || `Item ${i+1}`;
+                
+                statusText.textContent = `正在导入 (${i + 1}/${total}): ${itemLabel}`;
+                
+                try {
+                    // 后端 API 要求题目字段为 question_type
+                    if (type === 'question' && item.type && !item.question_type) {
+                        item.question_type = item.type;
+                    }
+
+                    await request(endpoint, {
+                        method: "POST",
+                        body: JSON.stringify(item)
+                    });
+                    
+                    success++;
+                    log.textContent += `[成功] ${itemLabel}\n`;
+                } catch (e) {
+                    failed++;
+                    log.textContent += `[失败] ${itemLabel}: ${e.message}\n`;
+                }
+
+                // 更新进度条
+                const percent = ((i + 1) / total) * 100;
+                bar.style.width = percent + "%";
+                log.scrollTop = log.scrollHeight;
+
+                // 重点：延迟 200ms 以避开 Nginx 的 10r/s 限流
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            statusText.textContent = `导入完成！成功: ${success}, 失败: ${failed}`;
+            btn.disabled = false;
+            statusBar.show(`批量导入结束，成功 ${success} 条`, "info");
+        }
+
+        // --- 其他逻辑 (保持不变) ---
+
+
+
+        // --- 贡献审核逻辑 ---
+
+        async function loadContributions() {
+            const list = document.getElementById("contrib-list");
+            list.innerHTML = "加载中...";
+            try {
+                const data = await request("/admin/contributions");
+                if (!data || data.length === 0) {
+                    list.innerHTML = "暂无数据";
+                    return;
+                }
+                
+                // 按时间倒序，最新的在前面
+                data.reverse();
+
+                list.innerHTML = data.map(item => {
+                    const isPending = item.status === 'pending';
+                    const typeLabel = item.type === 'architecture' ? '建筑' : '题目';
+                    
+                    // 构建数据预览
+                    let preview = JSON.stringify(item.data, null, 2);
+                    
+                    // 操作区 HTML
+                    let actionHtml = '';
+                    if (isPending) {
+                        actionHtml = `
+                            <div id="action-area-${item.id}" style="margin-top: 1rem;">
+                                <button onclick="showReviewInput(${item.id}, 'approved')">通过</button>
+                                <button class="secondary" onclick="showReviewInput(${item.id}, 'rejected')">拒绝</button>
+                            </div>
+                            <div id="review-form-${item.id}" class="inline-form hidden">
+                                <p style="font-size:0.9rem; margin-bottom:0.5rem;">请确认操作: <strong id="op-type-${item.id}"></strong></p>
+                                <input type="text" id="comment-${item.id}" class="inline-input" placeholder="输入审核意见 (可选)">
+                                <div style="display:flex; gap:0.5rem;">
+                                    <button onclick="submitReview(${item.id})">确认提交</button>
+                                    <button class="secondary" onclick="cancelReview(${item.id})">取消</button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        actionHtml = `
+                            <div style="margin-top: 1rem; padding: 1rem; background: #f9f9f9; border-left: 3px solid var(--gray-mid);">
+                                <p style="font-size: 0.9rem;"><strong>管理员意见:</strong> ${item.admin_comment || '无'}</p>
+                                <p style="font-size: 0.8rem; color: var(--gray-dark); margin-top:0.3rem;">审核时间: ${item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : '未知'}</p>
+                            </div>
+                        `;
+                    }
+
+                    return `
+                    <div class="review-item">
+                        <div class="flex-between">
+                            <span><strong>[${typeLabel}]</strong> ID: ${item.id}</span>
+                            <span class="status-${item.status}">${getStatusText(item.status)}</span>
+                        </div>
+                        <pre style="background:#f5f5f5; padding:10px; margin:10px 0; overflow:auto; max-height: 200px; font-size: 0.85rem;">${preview}</pre>
+                        ${actionHtml}
+                    </div>
+                    `;
+                }).join('');
+            } catch(e) {
+                list.innerHTML = "加载失败";
+            }
+        }
+
+        function getStatusText(status) {
+            if (status === 'pending') return '待审核';
+            if (status === 'approved') return '已通过';
+            if (status === 'rejected') return '已拒绝';
+            return status;
+        }
+
+        // 显示行内审核表单
+        window.currentOp = {}; // 暂存操作类型
+        function showReviewInput(id, status) {
+            document.getElementById(`action-area-${id}`).classList.add("hidden");
+            document.getElementById(`review-form-${id}`).classList.remove("hidden");
+            
+            window.currentOp[id] = status;
+            document.getElementById(`op-type-${id}`).textContent = status === 'approved' ? '通过' : '拒绝';
+            document.getElementById(`op-type-${id}`).style.color = status === 'approved' ? 'green' : 'red';
+        }
+
+        function cancelReview(id) {
+            document.getElementById(`action-area-${id}`).classList.remove("hidden");
+            document.getElementById(`review-form-${id}`).classList.add("hidden");
+            delete window.currentOp[id];
+        }
+
+        async function submitReview(id) {
+            const status = window.currentOp[id];
+            const comment = document.getElementById(`comment-${id}`).value || (status === 'approved' ? '通过' : '资料不全');
+
+            try {
+                await request(`/admin/contributions/${id}/review`, {
+                    method: "PUT",
+                    body: JSON.stringify({ status, admin_comment: comment })
+                });
+                statusBar.show("操作成功", "info");
+                loadContributions();
+            } catch(e) {}
+        }
+
+        // --- 用户管理逻辑 ---
+
+        async function loadUsers() {
+            const list = document.getElementById("user-list");
+            try {
+                const [users, me] = await Promise.all([
+                    request("/admin/users"),
+                    request("/profile/me")
+                ]);
+
+                list.innerHTML = `
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr style="text-align:left; border-bottom:1px solid #ddd;">
+                            <th style="padding:8px;">ID</th>
+                            <th>用户名</th>
+                            <th>角色</th>
+                            <th>操作</th>
+                        </tr>
+                        ${users.map(u => {
+                            const isMe = u.id === me.id;
+                            // 二段式删除按钮逻辑
+                            return `
+                            <tr style="border-bottom:1px solid #eee; background: ${isMe ? '#f9f9f9' : 'white'}">
+                                <td style="padding:8px;">${u.id}</td>
+                                <td>${u.username} ${isMe ? '(我)' : ''}</td>
+                                <td>${u.role}</td>
+                                <td>
+                                    ${isMe ? 
+                                        '<span style="color:gray; font-size:0.8rem;">不可删除</span>' : 
+                                        `<button class="secondary" id="btn-del-user-${u.id}" style="padding:2px 8px; font-size:0.8rem;" onclick="confirmDeleteUser(${u.id})">删除</button>`
+                                    }
+                                </td>
+                            </tr>
+                            `;
+                        }).join('')}
+                    </table>
+                `;
+            } catch(e) {}
+        }
+
+        function confirmDeleteUser(id) {
+            const btn = document.getElementById(`btn-del-user-${id}`);
+            if (btn.dataset.confirm === "true") {
+                // 已确认，执行删除
+                deleteUser(id);
+            } else {
+                // 第一次点击，变红
+                btn.textContent = "确认删除?";
+                btn.style.color = "red";
+                btn.style.borderColor = "red";
+                btn.dataset.confirm = "true";
+                // 3秒后自动恢复，防止误触一直有效
+                setTimeout(() => {
+                    if (btn && btn.parentElement) { // 检查元素是否还在
+                        btn.textContent = "删除";
+                        btn.style.color = "";
+                        btn.style.borderColor = "";
+                        btn.dataset.confirm = "false";
+                    }
+                }, 3000);
+            }
+        }
+
+        async function deleteUser(id) {
+            try {
+                await request(`/admin/users/${id}`, { method: "DELETE" });
+                statusBar.show("用户已删除", "info");
+                loadUsers();
+            } catch(e) {}
+        }
+
+        // --- 建筑管理逻辑 ---
+
+        async function loadArchs() {
+            const list = document.getElementById("arch-list");
+            list.innerHTML = "加载中...";
+            try {
+                const data = await request("/architectures");
+                list.innerHTML = `
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr style="text-align:left; border-bottom:1px solid #ddd;">
+                            <th style="padding:8px;">ID</th>
+                            <th>名称</th>
+                            <th>分类</th>
+                            <th>操作</th>
+                        </tr>
+                        ${data.map(a => `
+                        <tr style="border-bottom:1px solid #eee;">
+                            <td style="padding:8px;">${a.id}</td>
+                            <td>${a.name}</td>
+                            <td>${a.category}</td>
+                            <td>
+                                <button class="secondary" id="btn-del-arch-${a.id}" style="padding:2px 8px; font-size:0.8rem;" onclick="confirmDeleteArch(${a.id})">删除</button>
+                            </td>
+                        </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } catch(e) {}
+        }
+
+        function confirmDeleteArch(id) {
+            const btn = document.getElementById(`btn-del-arch-${id}`);
+            if (btn.dataset.confirm === "true") {
+                deleteArch(id);
+            } else {
+                btn.textContent = "确认删除?";
+                btn.style.color = "red";
+                btn.style.borderColor = "red";
+                btn.dataset.confirm = "true";
+                setTimeout(() => {
+                    if(btn) {
+                        btn.textContent = "删除";
+                        btn.style.color = "";
+                        btn.style.borderColor = "";
+                        btn.dataset.confirm = "false";
+                    }
+                }, 3000);
+            }
+        }
+
+        async function deleteArch(id) {
+            try {
+                await request(`/admin/architectures/${id}`, { method: "DELETE" });
+                statusBar.show("建筑已删除", "info");
+                loadArchs();
+            } catch(e) {}
+        }
+
+        // Initialize
+        initAdmin();
+    </script>
+</body>
+</html>

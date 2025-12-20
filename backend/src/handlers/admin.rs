@@ -16,7 +16,8 @@ use crate::{
         architecture::CreateArchRequest, contribution::Contribution,
         question::CreateQuestionRequest, user::User,
     },
-    utils::{hash::hash_password, jwt::Claims},
+    utils::hash::hash_password,
+    utils::jwt::Claims,
 };
 
 // --- DTOs ---
@@ -25,23 +26,26 @@ use crate::{
 pub struct AdminCreateUserRequest {
     #[validate(length(
         min = 3,
-        max = 20,
-        message = "Username length must be between 3 and 20 characters."
+        max = 50,
+        message = "Username length must be between 3 and 50 characters."
     ))]
     pub username: String,
     #[validate(length(
         min = 4,
-        max = 20,
-        message = "Password length must be between 4 and 20 characters."
+        max = 128,
+        message = "Password length must be between 4 and 128 characters."
     ))]
     pub password: String,
     pub role: String, // 'user' or 'admin'
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct AdminUpdateUserRequest {
+    #[validate(length(min = 3, max = 50))]
     pub username: Option<String>,
+    #[validate(length(min = 1, max = 20))]
     pub role: Option<String>,
+    #[validate(length(min = 4, max = 128))]
     pub password: Option<String>,
 }
 
@@ -51,24 +55,54 @@ pub struct ReviewContributionRequest {
     pub admin_comment: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct UpdateArchRequest {
+    #[validate(length(min = 1, max = 50))]
     pub category: Option<String>,
+    #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
+    #[validate(length(min = 1, max = 50))]
     pub dynasty: Option<String>,
+    #[validate(length(min = 1, max = 200))]
     pub location: Option<String>,
+    #[validate(length(min = 1, max = 20000))]
     pub description: Option<String>,
+    #[validate(length(min = 1, max = 500))]
     pub cover_img: Option<String>,
+    #[validate(custom(function = validate_optional_carousel_urls))]
     pub carousel_imgs: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize)]
+fn validate_optional_carousel_urls(urls: &[String]) -> Result<(), validator::ValidationError> {
+    for url in urls {
+        if url.len() > 500 {
+            return Err(validator::ValidationError::new("url_too_long"));
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Deserialize, Validate)]
 pub struct UpdateQuestionRequest {
+    #[validate(length(min = 1, max = 20))]
     pub question_type: Option<String>,
+    #[validate(length(min = 1, max = 1000))]
     pub content: Option<String>,
+    #[validate(custom(function = validate_optional_options))]
     pub options: Option<Vec<String>>,
+    #[validate(length(min = 1, max = 500))]
     pub answer: Option<String>,
+    #[validate(length(max = 2000))]
     pub analysis: Option<String>,
+}
+
+fn validate_optional_options(options: &[String]) -> Result<(), validator::ValidationError> {
+    for opt in options {
+        if opt.len() > 500 {
+            return Err(validator::ValidationError::new("option_too_long"));
+        }
+    }
+    Ok(())
 }
 
 // --- User Management ---
@@ -77,7 +111,7 @@ pub async fn list_users(State(pool): State<PgPool>) -> Result<impl IntoResponse,
     let users = sqlx::query_as!(
         User,
         r#"
-        SELECT id, username, password, role, is_verified, created_at
+        SELECT id, username, '********' as "password!", role, is_verified, created_at
         FROM users
         ORDER BY id DESC
         "#
@@ -92,6 +126,53 @@ pub async fn list_users(State(pool): State<PgPool>) -> Result<impl IntoResponse,
     Ok(Json(users))
 }
 
+pub async fn update_user(
+    State(pool): State<PgPool>,
+    Path(id): Path<i64>,
+    Json(payload): Json<AdminUpdateUserRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let mut builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE users SET ");
+    let mut separated = builder.separated(", ");
+
+    // If no fields provided, just return OK
+    if payload.username.is_none() && payload.role.is_none() && payload.password.is_none() {
+        return Ok(StatusCode::OK);
+    }
+
+    if let Some(new_username) = payload.username {
+        separated.push("username = ");
+        separated.push_bind_unseparated(new_username);
+    }
+    if let Some(new_role) = payload.role {
+        separated.push("role = ");
+        separated.push_bind_unseparated(new_role);
+    }
+    if let Some(new_password) = payload.password {
+        let hashed = hash_password(&new_password)?;
+        separated.push("password = ");
+        separated.push_bind_unseparated(hashed);
+    }
+
+    builder.push(" WHERE id = ");
+    builder.push_bind(id);
+
+    let result = builder.build().execute(&pool).await.map_err(|e| {
+        if e.to_string().contains("unique constraint") {
+            AppError::Conflict("Username already exists".to_string())
+        } else {
+            AppError::InternalServerError(e.to_string())
+        }
+    })?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("User not found".to_string()));
+    }
+
+    Ok(StatusCode::OK)
+}
+
 pub async fn create_user(
     State(pool): State<PgPool>,
     Json(payload): Json<AdminCreateUserRequest>,
@@ -103,7 +184,11 @@ pub async fn create_user(
     let hashed_password = hash_password(&payload.password)?;
 
     let id = sqlx::query!(
-        "INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id",
+        r#"
+        INSERT INTO users (username, password, role)
+        VALUES ($1, $2, $3)
+        RETURNING id
+        "#,
         payload.username,
         hashed_password,
         payload.role
@@ -111,8 +196,8 @@ pub async fn create_user(
     .fetch_one(&pool)
     .await
     .map_err(|e| {
-        if e.to_string().contains("unique constraint") || e.to_string().contains("23505") {
-            AppError::Conflict(format!("Username '{}' already exists", payload.username))
+        if e.to_string().contains("unique constraint") {
+            AppError::Conflict("Username already exists".to_string())
         } else {
             AppError::InternalServerError(e.to_string())
         }
@@ -120,35 +205,6 @@ pub async fn create_user(
     .id;
 
     Ok((StatusCode::CREATED, Json(serde_json::json!({"id": id}))))
-}
-
-pub async fn update_user(
-    State(pool): State<PgPool>,
-    Path(id): Path<i64>,
-    Json(payload): Json<AdminUpdateUserRequest>,
-) -> Result<impl IntoResponse, AppError> {
-    // Sequential updates for simplicity in Admin panel
-    if let Some(new_username) = payload.username {
-        sqlx::query!(
-            "UPDATE users SET username = $1 WHERE id = $2",
-            new_username,
-            id
-        )
-        .execute(&pool)
-        .await?;
-    }
-    if let Some(new_role) = payload.role {
-        sqlx::query!("UPDATE users SET role = $1 WHERE id = $2", new_role, id)
-            .execute(&pool)
-            .await?;
-    }
-    if let Some(new_password) = payload.password {
-        let hashed = hash_password(&new_password)?;
-        sqlx::query!("UPDATE users SET password = $1 WHERE id = $2", hashed, id)
-            .execute(&pool)
-            .await?;
-    }
-    Ok(StatusCode::OK)
 }
 
 pub async fn delete_user(
@@ -176,6 +232,7 @@ pub async fn create_architecture(
     State(pool): State<PgPool>,
     Json(payload): Json<CreateArchRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
     let carousel_json = serde_json::to_value(payload.carousel_imgs).unwrap_or_default();
     let id = sqlx::query!(
         r#"
@@ -197,6 +254,8 @@ pub async fn update_architecture(
     Path(id): Path<i64>,
     Json(payload): Json<UpdateArchRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let mut builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE architectures SET ");
     let mut separated = builder.separated(", ");
 
@@ -258,6 +317,8 @@ pub async fn create_question(
     State(pool): State<PgPool>,
     Json(payload): Json<CreateQuestionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let options_json = serde_json::to_value(payload.options).unwrap_or_default();
     let id = sqlx::query!(
         "INSERT INTO questions (type, content, options, answer, analysis) VALUES ($1, $2, $3, $4, $5) RETURNING id",
@@ -275,6 +336,8 @@ pub async fn update_question(
     Path(id): Path<i64>,
     Json(payload): Json<UpdateQuestionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let mut builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE questions SET ");
     let mut separated = builder.separated(", ");
 

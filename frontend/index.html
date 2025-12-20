@@ -1,1 +1,91 @@
-<h1>Ancient Arch API is Running</h1>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>古筑之光 | 首页</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html" class="active">百科</a>
+            <a href="community.html">社区</a>
+            <a href="quiz.html">趣味答题</a>
+            <a href="qualification.html">资格认证</a>
+            <a href="profile.html" class="auth-only hidden">个人中心</a>
+            <a href="login.html" class="guest-only">登录</a>
+            <a href="#" onclick="logout()" class="auth-only hidden">退出</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>建筑图书馆</h1>
+            <p style="color: var(--gray-dark)">探索中华大地的结构之美。</p>
+            
+            <div id="category-filter" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button onclick="filterCategory('')" class="secondary active">全部</button>
+                <button onclick="filterCategory('Palace')" class="secondary">宫殿</button>
+                <button onclick="filterCategory('Temple')" class="secondary">寺庙</button>
+                <button onclick="filterCategory('Garden')" class="secondary">园林</button>
+                <button onclick="filterCategory('Tomb')" class="secondary">陵墓</button>
+                <button onclick="filterCategory('Bridge')" class="secondary">桥梁</button>
+            </div>
+        </header>
+
+        <div id="arch-grid" class="grid">
+            <!-- 动态加载 -->
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        async function loadArchitectures(category = "") {
+            try {
+                const endpoint = category ? `/architectures?category=${category}` : "/architectures";
+                const data = await request(endpoint);
+                const grid = document.getElementById("arch-grid");
+                
+                if (!data || data.length === 0) {
+                    grid.innerHTML = "<p>暂无此类建筑数据。</p>";
+                    return;
+                }
+
+                grid.innerHTML = data.map(arch => `
+                    <a href="architecture-detail.html?id=${arch.id}" class="card">
+                        <img src="${arch.cover_img || 'https://placehold.co/400x300?text=No+Image'}" alt="${arch.name}">
+                        <div>
+                            <span class="card-tag">${arch.dynasty}</span>
+                            <span class="card-tag">${arch.category}</span>
+                            <h3 style="margin-top:0.5rem">${arch.name}</h3>
+                            <p style="font-size:0.8rem; color: var(--gray-dark)">${arch.location}</p>
+                        </div>
+                    </a>
+                `).join('');
+            } catch (e) {
+                // error handled by core.js
+            }
+        }
+
+        function filterCategory(cat) {
+            // Update active state
+            document.querySelectorAll("#category-filter button").forEach(b => {
+                if (b.textContent === (cat === '' ? '全部' : cat) || (cat === 'Palace' && b.textContent === '宫殿') || b.getAttribute('onclick').includes(`'${cat}'`)) {
+                   // 简单处理：全重置再设置
+                   b.classList.remove("active"); 
+                }
+            });
+            // Re-highlight logic is a bit complex with mixed text, let's just reload style by recreating buttons or simple toggle class
+            // 简化：移除所有 active，给当前点击的加 active
+            const buttons = document.querySelectorAll("#category-filter button");
+            buttons.forEach(b => b.classList.remove("active"));
+            event.target.classList.add("active");
+
+            loadArchitectures(cat);
+        }
+
+        loadArchitectures();
+    </script>
+</body>
+</html>

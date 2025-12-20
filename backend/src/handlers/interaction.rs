@@ -1,6 +1,6 @@
 use axum::{
     Extension, Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::{
     error::AppError,
-    models::comment::{CommentResponse, CreateCommentRequest},
+    models::comment::{CommentListParams, CommentResponse, CreateCommentRequest},
     utils::jwt::Claims,
 };
 
@@ -120,14 +120,16 @@ pub async fn toggle_favorite(
             post_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
         sqlx::query!(
             "UPDATE posts SET favorites_count = GREATEST(0, favorites_count - 1) WHERE id = $1",
             post_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     } else {
         sqlx::query!(
             "INSERT INTO post_favorites (user_id, post_id) VALUES ($1, $2)",
@@ -135,14 +137,21 @@ pub async fn toggle_favorite(
             post_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("unique constraint") {
+                return AppError::Conflict("Already favorited".to_string());
+            }
+            AppError::InternalServerError(e.to_string())
+        })?;
 
         sqlx::query!(
             "UPDATE posts SET favorites_count = favorites_count + 1 WHERE id = $1",
             post_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     }
 
     tx.commit().await?;
@@ -219,7 +228,11 @@ pub async fn create_comment(
 pub async fn list_comments(
     State(pool): State<PgPool>,
     Path(post_id): Path<i64>,
+    Query(params): Query<CommentListParams>,
 ) -> Result<impl IntoResponse, AppError> {
+    let limit = params.limit.unwrap_or(50).min(100);
+    let offset = params.offset.unwrap_or(0);
+
     let comments = sqlx::query_as!(
         CommentResponse,
         r#"
@@ -229,9 +242,12 @@ pub async fn list_comments(
         FROM comments c
         JOIN users u ON c.user_id = u.id
         WHERE c.post_id = $1 AND c.deleted_at IS NULL
-        ORDER BY c.root_id IS NOT NULL, c.root_id, c.created_at ASC
+        ORDER BY c.created_at DESC
+        LIMIT $2 OFFSET $3
         "#,
-        post_id
+        post_id,
+        limit,
+        offset
     )
     .fetch_all(&pool)
     .await?;

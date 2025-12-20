@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>个人中心 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .nav-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2rem;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            text-decoration: none;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .nav-card:hover {
+            border-color: var(--text);
+        }
+        .nav-card h3 { margin: 0; font-size: 1.2rem; }
+        .nav-card .arrow { font-size: 1.5rem; color: var(--gray-mid); }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html">百科</a>
+            <a href="community.html">社区</a>
+            <a href="quiz.html">趣味答题</a>
+            <a href="qualification.html">资格认证</a>
+            <a href="profile.html" class="active">个人中心</a>
+            <a href="#" onclick="logout()">退出</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>我的资料</h1>
+        
+        <!-- 用户信息卡片 -->
+        <div class="card" style="margin-top: 2rem; padding: 2rem; border-left: 5px solid var(--text);">
+            <div class="flex-between">
+                <div>
+                    <h2 id="username" style="margin-bottom: 0.5rem;">加载中...</h2>
+                    <div id="role-container" style="color: var(--gray-dark); margin-bottom: 0.5rem;"></div>
+                    <div id="verified-badge" style="display: inline-block; padding: 2px 8px; background: #eee; font-size: 0.8rem; border-radius: 4px;"></div>
+                </div>
+                <div style="text-align: center; min-width: 80px;">
+                    <div style="font-size: 2.5rem; font-weight: bold;" id="likes-count">-</div>
+                    <div style="font-size: 0.8rem; color: var(--gray-dark); text-transform: uppercase; letter-spacing: 1px;">获赞总数</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能入口网格 -->
+        <div class="grid" style="margin-top: 2rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+            
+            <!-- 入口 1: 贡献建筑 -->
+            <a href="contribution.html" class="nav-card">
+                <div>
+                    <h3>+ 贡献内容</h3>
+                    <p style="font-size: 0.85rem; color: var(--gray-dark); margin-top: 0.5rem;">提交建筑或题目</p>
+                </div>
+                <div class="arrow">&rarr;</div>
+            </a>
+
+            <!-- 入口 2: 我的帖子 -->
+            <a href="my-posts.html" class="nav-card">
+                <div>
+                    <h3>我的帖子</h3>
+                    <p style="font-size: 0.85rem; color: var(--gray-dark); margin-top: 0.5rem;">查看已发布的主题</p>
+                </div>
+                <div class="arrow">&rarr;</div>
+            </a>
+
+            <!-- 入口 3: 我的收藏 -->
+            <a href="favorites.html" class="nav-card">
+                <div>
+                    <h3>我的收藏夹</h3>
+                    <p style="font-size: 0.85rem; color: var(--gray-dark); margin-top: 0.5rem;">查看收藏的讨论</p>
+                </div>
+                <div class="arrow">&rarr;</div>
+            </a>
+        </div>
+
+        <!-- 贡献记录列表 (保留在当前页，方便查看状态) -->
+        <h3 style="margin-top: 3rem;">最近贡献记录</h3>
+        <div class="card" style="min-height: 100px;">
+            <div id="my-contrib-list">加载中...</div>
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        async function loadProfile() {
+            try {
+                // 1. 获取基本信息
+                const me = await request("/profile/me");
+                document.getElementById("username").textContent = me.username;
+                
+                const roleContainer = document.getElementById("role-container");
+                roleContainer.textContent = `身份: ${me.role}`;
+                
+                // Admin Button
+                if (me.role === 'admin') {
+                    const adminBtn = document.createElement("button");
+                    adminBtn.textContent = "进入管理后台";
+                    adminBtn.style.marginTop = "0.5rem";
+                    adminBtn.style.padding = "0.3rem 0.8rem";
+                    adminBtn.style.fontSize = "0.85rem";
+                    adminBtn.onclick = () => window.location.href = "admin.html";
+                    roleContainer.appendChild(document.createElement("br"));
+                    roleContainer.appendChild(adminBtn);
+                }
+
+                document.getElementById("likes-count").textContent = me.total_likes_received || 0;
+                
+                const badge = document.getElementById("verified-badge");
+                if (me.is_verified) {
+                    badge.textContent = "✓ 已认证营造司";
+                    badge.style.background = "#d4edda";
+                    badge.style.color = "#155724";
+                } else {
+                    badge.textContent = "未认证 (点击去考试)";
+                    badge.onclick = () => window.location.href = "qualification.html";
+                    badge.style.cursor = "pointer";
+                    badge.style.background = "#f8d7da";
+                    badge.style.color = "#721c24";
+                }
+
+                // 2. 获取贡献 (这里只显示最近 5 条)
+                const contribs = await request("/profile/contributions");
+                const contribList = document.getElementById("my-contrib-list");
+                
+                if (contribs && contribs.length > 0) {
+                    const statusMap = {
+                        "pending": "<span style='color:orange'>⏳ 审核中</span>",
+                        "approved": "<span style='color:green'>✅ 已通过</span>",
+                        "rejected": "<span style='color:red'>❌ 已拒绝</span>"
+                    };
+                    // 显示最近 5 条
+                    contribList.innerHTML = contribs.reverse().slice(0, 5).map(c => {
+                        let summary = "";
+                        if (c.type === 'architecture') summary = `[建筑] ${c.data.name}`;
+                        else summary = `[题目] ${c.data.content ? c.data.content.substring(0, 20) + '...' : '新题目'}`;
+                        
+                        return `
+                        <div class="flex-between" style="padding: 0.8rem 0; border-bottom: 1px solid #eee;">
+                            <span>${summary}</span>
+                            <span style="font-size:0.9rem;">${statusMap[c.status] || c.status}</span>
+                        </div>
+                        `;
+                    }).join('');
+                } else {
+                    contribList.innerHTML = "<p style='color:var(--gray-dark)'>暂无提交记录。</p>";
+                }
+
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        loadProfile();
+    </script>
+</body>
+</html>

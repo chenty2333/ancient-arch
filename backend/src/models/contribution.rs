@@ -18,9 +18,18 @@ pub struct Contribution {
 /// DTO for submission.
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateContributionRequest {
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, max = 20))]
     pub r#type: String,
 
     /// The payload must be a valid JSON matching the target model's create request.
+    #[validate(custom(function = validate_data_size))]
     pub data: serde_json::Value,
+}
+
+fn validate_data_size(data: &serde_json::Value) -> Result<(), validator::ValidationError> {
+    // Limit total JSON size to roughly 50KB to prevent abuse
+    if data.to_string().len() > 50000 {
+        return Err(validator::ValidationError::new("payload_too_large"));
+    }
+    Ok(())
 }

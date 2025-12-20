@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            c.id, c.post_id, c.user_id, u.username, c.content, \n            c.root_id, c.parent_id, c.created_at, c.deleted_at\n        FROM comments c\n        JOIN users u ON c.user_id = u.id\n        WHERE c.post_id = $1 AND c.deleted_at IS NULL\n        ORDER BY c.root_id IS NOT NULL, c.root_id, c.created_at ASC\n        ",
+  "query": "\n        SELECT \n            c.id, c.post_id, c.user_id, u.username, c.content, \n            c.root_id, c.parent_id, c.created_at, c.deleted_at\n        FROM comments c\n        JOIN users u ON c.user_id = u.id\n        WHERE c.post_id = $1 AND c.deleted_at IS NULL\n        ORDER BY c.created_at DESC\n        LIMIT $2 OFFSET $3\n        ",
   "describe": {
     "columns": [
       {
@@ -51,6 +51,8 @@
     ],
     "parameters": {
       "Left": [
+        "Int8",
+        "Int8",
         "Int8"
       ]
     },
@@ -66,5 +68,5 @@
       true
     ]
   },
-  "hash": "b52469655ca1d720c6e2215a4831506a8e82059248bf38d7cb7ddae78428d66c"
+  "hash": "1984cfe7f74bb42d935132abbea61a81df3027c344224071e398886a855fbe9b"
 }

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的收藏 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="profile.html">返回个人中心</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>我的收藏夹</h1>
+        <div id="fav-list" style="margin-top: 2rem;">
+            加载中...
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        async function loadFavorites() {
+            try {
+                const list = await request("/profile/favorites");
+                const container = document.getElementById("fav-list");
+                
+                if (!list || list.length === 0) {
+                    container.innerHTML = "<p>暂无收藏内容。</p>";
+                    return;
+                }
+
+                container.innerHTML = list.map(item => `
+                    <div class="card" style="margin-bottom: 1rem; cursor: pointer;" onclick="window.location.href='post-detail.html?id=${item.post_id}'">
+                        <div class="flex-between">
+                            <h3 style="margin: 0; font-size: 1.1rem;">${item.title}</h3>
+                            <span style="font-size: 0.8rem; color: var(--gray-dark);">${new Date(item.favorited_at).toLocaleDateString()}</span>
+                        </div>
+                        <p style="font-size: 0.9rem; color: var(--gray-dark); margin-top: 0.5rem;">
+                            作者: ${item.author_username}
+                        </p>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = "加载失败";
+            }
+        }
+        loadFavorites();
+    </script>
+</body>
+</html>

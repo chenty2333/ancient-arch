@@ -43,3 +43,10 @@ pub struct CommentResponse {
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
     pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
 }
+
+/// Query parameters for listing comments with pagination.
+#[derive(Debug, Deserialize)]
+pub struct CommentListParams {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}

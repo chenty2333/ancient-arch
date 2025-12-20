@@ -8,7 +8,7 @@ use validator::Validate;
 use crate::{
     config::Config,
     error::AppError,
-    models::user::{CreateUserRequest, User},
+    models::user::{CreateUserRequest, LoginRequest, User},
     utils::{
         hash::{hash_password, verify_password},
         jwt::sign_jwt,
@@ -23,9 +23,7 @@ pub async fn register(
     State(pool): State<PgPool>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    if let Err(validation_errors) = payload.validate() {
-        return Err(AppError::BadRequest(validation_errors.to_string()));
-    }
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let hashed_password = hash_password(&payload.password)?;
 
@@ -61,8 +59,10 @@ pub async fn register(
 pub async fn login(
     State(pool): State<PgPool>,
     State(config): State<Config>,
-    Json(payload): Json<CreateUserRequest>,
+    Json(payload): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let user = sqlx::query_as!(
         User,
         r#"

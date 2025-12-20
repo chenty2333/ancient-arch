@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>资格认证 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html">百科</a>
+            <a href="community.html">社区</a>
+            <a href="quiz.html">趣味答题</a>
+            <a href="qualification.html" class="active">资格认证</a>
+            <a href="profile.html" class="auth-only hidden">个人中心</a>
+            <a href="login.html" class="guest-only">登录</a>
+            <a href="#" onclick="logout()" class="auth-only hidden">退出</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>营造司资格考试</h1>
+            <p style="color: var(--gray-dark)">通过考试后，您将获得「发布帖子」和「贡献建筑」的权限。</p>
+        </header>
+
+        <div id="intro-panel">
+            <div class="card" style="margin-top: 2rem; background: var(--gray-light); border: none;">
+                <h3>考试说明</h3>
+                <ul style="margin: 1rem 0 1rem 1.5rem; color: var(--gray-dark)">
+                    <li>共 20 道题目，满分 100 分。</li>
+                    <li>及格分数为 60 分。</li>
+                    <li>请在 15 分钟内完成。</li>
+                </ul>
+                <button onclick="startExam()">开始答题</button>
+            </div>
+        </div>
+
+        <div id="exam-panel" class="hidden">
+            <div id="timer" style="position: sticky; top: 70px; background: white; padding: 10px; border-bottom: 2px solid var(--text); z-index: 90; text-align: center; font-weight: bold;">
+                剩余时间: <span id="time-display">15:00</span>
+            </div>
+            <form id="exam-form" style="margin-top: 2rem;">
+                <!-- 题目动态加载 -->
+            </form>
+            <button onclick="submitExam()" style="margin-top: 2rem; width: 100%">提交试卷</button>
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        let examToken = "";
+        let timerInterval;
+
+        async function startExam() {
+            if (!state.token) {
+                statusBar.show("请先登录", "error");
+                setTimeout(() => window.location.href = "login.html", 1000);
+                return;
+            }
+
+            try {
+                // 获取试卷
+                const res = await request("/auth/qualification");
+                // 响应结构: { questions: [...], exam_token: "...", expires_in: 900 }
+                
+                if (!res || !res.questions) {
+                    statusBar.show("无法获取试卷，您可能已经是认证用户或今日次数已达上限。", "error");
+                    return;
+                }
+
+                examToken = res.exam_token;
+                renderQuestions(res.questions);
+                
+                document.getElementById("intro-panel").classList.add("hidden");
+                document.getElementById("exam-panel").classList.remove("hidden");
+                
+                startTimer(res.expires_in || 900);
+            } catch (e) {
+                // error handled by core.js
+            }
+        }
+
+        function renderQuestions(questions) {
+            const form = document.getElementById("exam-form");
+            form.innerHTML = questions.map((q, idx) => {
+                // options 可能是字符串或数组，做一下兼容处理
+                let opts = q.options;
+                if (typeof opts === 'string') {
+                    try { opts = JSON.parse(opts); } catch(e) {}
+                }
+
+                return (
+                `<div class="card" style="margin-bottom: 1.5rem; border: none; background: #fff;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">${idx + 1}. ${q.content}</h3>
+                    <div class="options">
+                        ${opts.map((opt, optIdx) => {
+                            const val = String.fromCharCode(65 + optIdx); // A, B, C, D
+                            // 处理单选 vs 多选 (目前 API 似乎主要是单选)
+                            const type = q.type === 'multiple' ? 'checkbox' : 'radio';
+                            return (
+                            `<div style="margin-bottom: 0.5rem;">
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="${type}" name="q-${q.id}" value="${val}" style="width: auto; margin-right: 0.8rem;">
+                                    <span style="color: var(--text); font-size: 1rem;">${opt}</span>
+                                </label>
+                            </div>
+                            `)
+                        }).join('')}
+                    </div>
+                </div>
+                `)
+            }).join('');
+        }
+
+        function startTimer(seconds) {
+            const display = document.getElementById("time-display");
+            let remain = seconds;
+            timerInterval = setInterval(() => {
+                remain--;
+                const m = Math.floor(remain / 60).toString().padStart(2, '0');
+                const s = (remain % 60).toString().padStart(2, '0');
+                display.textContent = `${m}:${s}`;
+                if (remain <= 0) {
+                    clearInterval(timerInterval);
+                    submitExam();
+                }
+            }, 1000);
+        }
+
+        async function submitExam() {
+            clearInterval(timerInterval);
+            const form = document.getElementById("exam-form");
+            const formData = new FormData(form);
+            const answers = {};
+
+            // 收集答案
+            // 假设主要是单选，如果是多选需要额外处理逻辑
+            for (let [key, value] of formData.entries()) {
+                // key is like "q-101"
+                const qId = key.split('-')[1];
+                // 如果是多选，这里需要拼接字符串，暂且按 API 主要是单选处理
+                answers[qId] = value; 
+            }
+
+            try {
+                const res = await request("/auth/qualification/submit", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        exam_token: examToken,
+                        answers: answers
+                    })
+                });
+
+                if (res) {
+                    const passedText = res.passed ? "通过" : "未通过";
+                    const color = res.passed ? "green" : "red";
+                    
+                    document.getElementById("exam-panel").innerHTML = `
+                        <div class="card" style="text-align: center; padding: 3rem;">
+                            <h2>考试结束</h2>
+                            <p style="font-size: 1.2rem; margin: 1rem 0;">得分: <strong>${res.score}</strong></p>
+                            <p style="font-size: 1.5rem; color: ${color}; font-weight: bold; margin-bottom: 2rem;">${passedText}</p>
+                            <button onclick="window.location.href='profile.html'">返回个人中心</button>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+</html>

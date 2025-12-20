@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>帖子详情 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .comment-item { padding: 0.8rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        .comment-child { margin-left: 1.2rem; padding: 0.4rem 0 0.4rem 0.8rem; border-left: 1px solid #eee; border-bottom: none; font-size: 0.85rem; }
+        .comment-meta { font-size: 0.75rem; color: var(--gray-dark); margin-bottom: 0.2rem; }
+        .comment-author { font-weight: 600; color: var(--text); margin-right: 0.5rem; }
+        .comment-content { line-height: 1.5; color: var(--text); }
+        .comment-actions { margin-top: 0.3rem; }
+        .comment-actions button { background: none; border: none; padding: 0; color: var(--gray-mid); font-size: 0.75rem; text-decoration: underline; cursor: pointer; }
+        .comment-actions button:hover { color: var(--text); }
+
+        /* 统一输入框样式 */
+        .reply-box { margin-top: 0.8rem; padding: 0.8rem; background: var(--gray-light); }
+        .reply-box textarea { width: 100%; height: 60px; padding: 0.5rem; border: 1px solid var(--gray-mid); font-family: inherit; font-size: 0.85rem; outline: none; margin-bottom: 0.5rem; display: block; resize: none; }
+        .reply-box .btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
+        
+        #btn-load-more { width: 100%; padding: 0.6rem; background: var(--gray-light); color: var(--text); border: none; font-size: 0.85rem; cursor: pointer; margin: 1.5rem 0; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="index.html">百科</a>
+            <a href="community.html">社区</a>
+            <a href="quiz.html">趣味答题</a>
+            <a href="qualification.html">资格认证</a>
+            <a href="profile.html" class="auth-only hidden">个人中心</a>
+            <a href="login.html" class="guest-only">登录</a>
+            <a href="#" onclick="logout()" class="auth-only hidden">退出</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 650px;">
+        <article style="margin-bottom: 3rem;">
+            <h1 id="post-title">加载中...</h1>
+            <div style="font-size: 0.8rem; color: var(--gray-dark); margin-bottom: 1.5rem;">
+                <span id="post-date">...</span>
+            </div>
+            <div id="post-content" style="white-space: pre-wrap; margin-bottom: 2rem; line-height: 1.6;"></div>
+            <div class="flex-between" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                <div style="display: flex; gap: 1rem;">
+                    <button id="btn-like" class="secondary" onclick="toggleLike()">赞 <span id="like-count">0</span></button>
+                    <button id="btn-fav" class="secondary" onclick="toggleFavorite()">收藏</button>
+                </div>
+                <button id="btn-delete" class="hidden" style="color: #b00020; border:1px solid #eee; background:none; padding: 0.4rem 0.8rem;" onclick="deletePost()">删除帖子</button>
+            </div>
+        </article>
+
+        <section id="comment-section">
+            <h3 style="font-size: 1.1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--text); padding-bottom: 0.5rem;">
+                全部评论 (<span id="comment-count">0</span>)
+            </h3>
+            
+            <!-- 主回复框：仅用于回复帖子 -->
+            <div class="reply-box" style="margin-bottom: 2rem; background: none; border: 1px solid var(--border); padding: 0;">
+                <textarea id="main-comment-input" placeholder="发表公开评论..." style="border:none; border-bottom:1px solid var(--border); margin-bottom:0;"></textarea>
+                <div class="btns" style="padding: 0.5rem;">
+                    <button onclick="postComment(null)" style="padding: 0.3rem 1.2rem;">发布</button>
+                </div>
+            </div>
+
+            <div id="comment-list"></div>
+            <button id="btn-load-more" class="hidden" onclick="loadComments(true)">加载更多</button>
+        </section>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const postId = params.get("id");
+        let currentPost = null;
+        let currentOffset = 0;
+        const limit = 10;
+
+        async function loadPost() {
+            if (!postId) return;
+            try {
+                const post = await request(`/posts/${postId}`);
+                currentPost = post;
+                document.getElementById("post-title").textContent = post.title;
+                document.getElementById("post-date").textContent = new Date(post.created_at).toLocaleString();
+                document.getElementById("post-content").textContent = post.content;
+                document.getElementById("like-count").textContent = post.likes_count;
+                document.getElementById("comment-count").textContent = post.comments_count;
+                updateActionButtons(post);
+                loadComments(false);
+
+                const me = await request("/profile/me").catch(()=>null);
+                if (me && (String(me.id) === String(post.user_id) || me.role === 'admin')) {
+                    document.getElementById("btn-delete").classList.remove("hidden");
+                }
+            } catch (e) {}
+        }
+
+        async function loadComments(append = false) {
+            if (!append) {
+                currentOffset = 0;
+                document.getElementById("comment-list").innerHTML = "";
+            }
+            try {
+                const comments = await request(`/posts/${postId}/comments?limit=${limit}&offset=${currentOffset}`);
+                const list = document.getElementById("comment-list");
+                if (!comments || comments.length === 0) {
+                    if (!append) list.innerHTML = "<p style='color:var(--gray-dark)'>暂无评论</p>";
+                    document.getElementById("btn-load-more").classList.add("hidden");
+                    return;
+                }
+
+                const userMap = {};
+                comments.forEach(c => userMap[c.id] = c.username);
+
+                const html = comments.map(c => {
+                    const isChild = !!c.root_id;
+                    const replyTo = c.parent_id && userMap[c.parent_id] ? `<span style="color:var(--gray-dark)">回复 @${userMap[c.parent_id]}</span> ` : "";
+                    
+                    return `
+                    <div class="comment-item ${isChild ? 'comment-child' : ''}" id="comment-${c.id}">
+                        <div class="comment-meta">
+                            <span class="comment-author">${c.username}</span>
+                            <span>${new Date(c.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="comment-content">${replyTo}${c.content}</div>
+                        <div class="comment-actions">
+                            <button onclick="showInlineReply(${c.id}, '${c.username}')">回复</button>
+                        </div>
+                        <!-- 行内回复框容器 -->
+                        <div id="reply-container-${c.id}"></div>
+                    </div>
+                    `;
+                }).join('');
+
+                if (append) list.innerHTML += html;
+                else list.innerHTML = html;
+
+                currentOffset += limit;
+                document.getElementById("btn-load-more").className = comments.length < limit ? "hidden" : "";
+            } catch (e) {}
+        }
+
+        // 显示行内回复框
+        function showInlineReply(id, name) {
+            // 先移除现有的所有行内回复框，保证唯一性
+            const existing = document.querySelector('.inline-reply-box');
+            if (existing) existing.remove();
+
+            const container = document.getElementById(`reply-container-${id}`);
+            container.innerHTML = `
+                <div class="reply-box inline-reply-box">
+                    <textarea id="inline-input-${id}" placeholder="回复 @${name}..."></textarea>
+                    <div class="btns">
+                        <button class="secondary" onclick="this.closest('.reply-box').remove()">取消</button>
+                        <button onclick="postComment(${id})">发布</button>
+                    </div>
+                </div>
+            `;
+            container.querySelector('textarea').focus();
+        }
+
+        async function postComment(parentId) {
+            if (!state.token) return window.location.href = "login.html";
+            
+            const inputId = parentId ? `inline-input-${parentId}` : 'main-comment-input';
+            const input = document.getElementById(inputId);
+            const content = input.value.trim();
+            if (!content) return;
+
+            try {
+                await request(`/posts/${postId}/comments`, {
+                    method: "POST",
+                    body: JSON.stringify({ content, parent_id: parentId })
+                });
+                
+                input.value = "";
+                if (parentId) document.querySelector('.inline-reply-box').remove();
+                
+                loadComments(false); // 刷新查看最新
+                statusBar.show("已发布", "info");
+                
+                // 更新计数
+                document.getElementById("comment-count").textContent = parseInt(document.getElementById("comment-count").textContent) + 1;
+            } catch(e) {}
+        }
+
+        // --- 基础逻辑 ---
+        async function toggleLike() {
+            if (!state.token) return window.location.href = "login.html";
+            try {
+                const res = await request(`/posts/${postId}/like`, { method: "POST" });
+                currentPost.is_liked = res.liked;
+                currentPost.likes_count += res.liked ? 1 : -1;
+                document.getElementById("like-count").textContent = currentPost.likes_count;
+                updateActionButtons(currentPost);
+            } catch(e) {}
+        }
+        async function toggleFavorite() {
+            if (!state.token) return window.location.href = "login.html";
+            try {
+                const res = await request(`/posts/${postId}/favorite`, { method: "POST" });
+                currentPost.is_favorited = res.favorited;
+                updateActionButtons(currentPost);
+            } catch(e) {}
+        }
+        function updateActionButtons(post) {
+            const btnLike = document.getElementById("btn-like");
+            const btnFav = document.getElementById("btn-fav");
+            btnLike.style.background = post.is_liked ? "var(--text)" : "";
+            btnLike.style.color = post.is_liked ? "var(--bg)" : "";
+            btnFav.style.background = post.is_favorited ? "var(--text)" : "";
+            btnFav.style.color = post.is_favorited ? "var(--bg)" : "";
+            btnFav.textContent = post.is_favorited ? "已收藏" : "收藏";
+        }
+        let delTimer;
+        async function deletePost() {
+            const btn = document.getElementById("btn-delete");
+            if (btn.getAttribute("data-confirm") !== "true") {
+                btn.textContent = "确认删除?";
+                btn.setAttribute("data-confirm", "true");
+                clearTimeout(delTimer);
+                delTimer = setTimeout(() => {
+                    btn.textContent = "删除帖子";
+                    btn.removeAttribute("data-confirm");
+                }, 3000);
+                return;
+            }
+            try {
+                await request(`/posts/${postId}`, { method: "DELETE" });
+                statusBar.show("已删除", "info");
+                setTimeout(() => window.location.href = "community.html", 1000);
+            } catch(e) {}
+        }
+
+        loadPost();
+    </script>
+</body>
+</html>

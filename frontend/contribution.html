@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>贡献建筑 | 古筑之光</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">ANCIENT ARCH</a>
+        <div class="links">
+            <a href="profile.html">返回个人中心</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 700px;">
+        <h1 id="page-title">贡献内容</h1>
+        <p id="page-desc" style="margin-bottom: 2rem; color: var(--gray-dark)">感谢您为完善数据库做出的贡献。提交后需经管理员审核。</p>
+        
+        <div class="form-group">
+            <label>类型</label>
+            <select id="contrib-type" onchange="toggleForm()">
+                <option value="architecture">古建筑条目</option>
+                <option value="question">题库题目</option>
+            </select>
+        </div>
+
+        <form id="contrib-form">
+            <!-- ... (表单字段保持不变) ... -->
+            <div id="form-arch">
+                <div class="form-group">
+                    <label>建筑名称</label>
+                    <input type="text" id="name">
+                </div>
+                
+                <div class="grid" style="margin-top: 0; grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label>朝代</label>
+                        <input type="text" id="dynasty" placeholder="如：唐、宋">
+                    </div>
+                    <div class="form-group">
+                        <label>分类</label>
+                        <input type="text" id="category" placeholder="如：宫殿、寺庙">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>地理位置</label>
+                    <input type="text" id="location">
+                </div>
+
+                <div class="form-group">
+                    <label>封面图片 URL</label>
+                    <input type="url" id="cover_img" placeholder="https://...">
+                </div>
+
+                <div class="form-group">
+                    <label>详细描述</label>
+                    <textarea id="description" rows="6" style="width:100%; padding:0.6rem; border:1px solid var(--gray-mid); font-family:inherit"></textarea>
+                </div>
+            </div>
+
+            <!-- 题目表单部分 -->
+            <div id="form-question" class="hidden">
+                <div class="form-group">
+                    <label>题目类型</label>
+                    <select id="question_type">
+                        <option value="single">单选题</option>
+                        <option value="multiple">多选题</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>题目内容</label>
+                    <textarea id="q_content" rows="3" style="width:100%; padding:0.6rem; border:1px solid var(--gray-mid);"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>选项 (每行一个)</label>
+                    <textarea id="q_options" rows="4" placeholder="A. 选项一&#10;B. 选项二..." style="width:100%; padding:0.6rem; border:1px solid var(--gray-mid);"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>正确答案</label>
+                    <input type="text" id="q_answer" placeholder="如：A">
+                </div>
+                <div class="form-group">
+                    <label>解析 (可选)</label>
+                    <textarea id="q_analysis" rows="3" style="width:100%; padding:0.6rem; border:1px solid var(--gray-mid);"></textarea>
+                </div>
+            </div>
+
+            <button type="submit" id="submit-btn" style="margin-top: 1rem;">提交审核</button>
+        </form>
+    </div>
+
+    <script src="core.js"></script>
+    <script>
+        let userRole = 'user';
+
+        async function checkIdentity() {
+            try {
+                const me = await request("/profile/me");
+                userRole = me.role;
+                if (userRole === 'admin') {
+                    document.getElementById("page-title").textContent = "内容直发 (管理员)";
+                    document.getElementById("page-desc").textContent = "您正在以管理员身份操作，提交的内容将直接发布，无需审核。";
+                    document.getElementById("submit-btn").textContent = "立即发布";
+                }
+            } catch (e) {}
+        }
+
+        function toggleForm() {
+            const type = document.getElementById("contrib-type").value;
+            if (type === 'architecture') {
+                document.getElementById("form-arch").classList.remove("hidden");
+                document.getElementById("form-question").classList.add("hidden");
+            } else {
+                document.getElementById("form-arch").classList.add("hidden");
+                document.getElementById("form-question").classList.remove("hidden");
+            }
+        }
+
+        document.getElementById("contrib-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const type = document.getElementById("contrib-type").value;
+            
+            if (userRole === 'admin') {
+                // 管理员快车道逻辑
+                await handleAdminDirectPost(type);
+            } else {
+                // 普通用户贡献逻辑
+                await handleUserContribution(type);
+            }
+        });
+
+        async function handleAdminDirectPost(type) {
+            let endpoint = type === 'architecture' ? '/admin/architectures' : '/admin/questions';
+            let payload = {};
+
+            if (type === 'architecture') {
+                payload = {
+                    category: document.getElementById("category").value,
+                    name: document.getElementById("name").value,
+                    dynasty: document.getElementById("dynasty").value,
+                    location: document.getElementById("location").value,
+                    description: document.getElementById("description").value,
+                    cover_img: document.getElementById("cover_img").value,
+                    carousel_imgs: []
+                };
+            } else {
+                payload = {
+                    question_type: document.getElementById("question_type").value,
+                    content: document.getElementById("q_content").value,
+                    options: document.getElementById("q_options").value.split('\n').filter(s => s.trim()),
+                    answer: document.getElementById("q_answer").value,
+                    analysis: document.getElementById("q_analysis").value
+                };
+            }
+
+            try {
+                await request(endpoint, { method: "POST", body: JSON.stringify(payload) });
+                statusBar.show("内容已直接发布", "info");
+                setTimeout(() => window.location.href = "index.html", 1500);
+            } catch (e) {}
+        }
+
+        async function handleUserContribution(type) {
+            let payload = { type, data: {} };
+            if (type === 'architecture') {
+                payload.data = {
+                    name: document.getElementById("name").value,
+                    dynasty: document.getElementById("dynasty").value,
+                    category: document.getElementById("category").value,
+                    location: document.getElementById("location").value,
+                    cover_img: document.getElementById("cover_img").value,
+                    description: document.getElementById("description").value,
+                    carousel_imgs: []
+                };
+            } else {
+                payload.data = {
+                    question_type: document.getElementById("question_type").value,
+                    content: document.getElementById("q_content").value,
+                    options: document.getElementById("q_options").value.split('\n').filter(s => s.trim()),
+                    answer: document.getElementById("q_answer").value,
+                    analysis: document.getElementById("q_analysis").value
+                };
+            }
+
+            try {
+                await request("/contributions", { method: "POST", body: JSON.stringify(payload) });
+                statusBar.show("提交成功！请等待审核。", "info");
+                setTimeout(() => window.location.href = "profile.html", 1500);
+            } catch (err) {}
+        }
+
+        checkIdentity();
+    </script>
+</body>
+</html>
