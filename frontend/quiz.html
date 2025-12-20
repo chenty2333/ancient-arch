@@ -85,14 +85,16 @@
             }
 
             try {
+                // 后端接口返回的是直接数组 [{}, {}, ...]
                 const res = await request("/quiz/generate");
-                if (!res || !res.questions) {
-                    statusBar.show("生成试卷失败", "error");
+                if (!res || !Array.isArray(res) || res.length === 0) {
+                    statusBar.show("题库数据不足 (需要单选和多选题混合)", "error");
                     return;
                 }
                 
-                quizToken = res.exam_token;
-                renderQuiz(res.questions);
+                // 趣味答题没有 exam_token (后端逻辑目前是直接对比 ID)
+                // 注意：后端 submit_paper 只需要 answers 映射
+                renderQuiz(res);
                 document.getElementById("quiz-start-panel").classList.add("hidden");
                 document.getElementById("quiz-panel").classList.remove("hidden");
             } catch(e) {}
@@ -105,12 +107,18 @@
                 if (typeof opts === 'string') {
                     try { opts = JSON.parse(opts); } catch(e) {}
                 }
+                // 处理单选/多选 UI
+                const inputType = q.question_type === 'multiple' ? 'checkbox' : 'radio';
+                const inputName = `q-${q.id}`;
+
                 return `
                 <div class="card" style="margin-bottom: 1rem;">
-                    <p style="font-weight: bold; margin-bottom: 0.5rem;">${idx+1}. ${q.content}</p>
+                    <p style="font-weight: bold; margin-bottom: 0.5rem;">
+                        ${idx+1}. [${q.question_type === 'multiple' ? '多选' : '单选'}] ${q.content}
+                    </p>
                     ${opts.map((opt, i) => `
                         <label style="display: block; margin: 0.3rem 0; cursor: pointer;">
-                            <input type="radio" name="q-${q.id}" value="${String.fromCharCode(65+i)}">
+                            <input type="${inputType}" name="${inputName}" value="${String.fromCharCode(65+i)}">
                             ${opt}
                         </label>
                     `).join('')}
@@ -124,16 +132,22 @@
             const formData = new FormData(form);
             const answers = {};
 
+            // 收集答案逻辑
             for (let [key, value] of formData.entries()) {
                 const qId = key.split('-')[1];
-                answers[qId] = value;
+                if (answers[qId]) {
+                    // 如果是多选，拼接答案
+                    answers[qId] += value;
+                } else {
+                    answers[qId] = value;
+                }
             }
 
             try {
                 const res = await request("/quiz/submit", {
                     method: "POST",
                     body: JSON.stringify({
-                        exam_token: quizToken,
+                        exam_token: "", // 趣味答题暂时不需要 token
                         answers: answers
                     })
                 });
