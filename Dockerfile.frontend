@@ -1,0 +1,19 @@
+# Use Nginx Alpine as the base image for small footprint
+FROM nginx:alpine
+
+# Copy custom Nginx configuration
+# We rename it to default.conf to override the standard configuration
+COPY nginx/prod.conf /etc/nginx/conf.d/default.conf
+
+# Copy SSL certs folder structure (empty or with placeholders if needed)
+# In production, you typically mount real certs via volume, but creating the dir ensures it exists
+RUN mkdir -p /etc/nginx/certs
+
+# Copy static frontend files to the default Nginx public directory
+COPY frontend /usr/share/nginx/html
+
+# Expose ports (80 for HTTP, 443 for HTTPS, 8080 for testing)
+EXPOSE 80 443 8080
+
+# Start Nginx in foreground
+CMD ["nginx", "-g", "daemon off;"]

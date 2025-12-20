@@ -16,9 +16,10 @@ services:
       timeout: 5s
       retries: 5
 
-  # === Backend Service (GHCR Image) ===
+  # === Backend Service ===
   app:
-    image: ghcr.io/chenty2333/ancient-arch:latest
+    # Pulls the backend image built by GitHub Actions
+    image: ghcr.io/chenty2333/ancient-arch-backend:latest
     container_name: ancient_arch_backend
     restart: always
     depends_on:
@@ -32,16 +33,17 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
 
-  # === Reverse Proxy (Gateway) ===
+  # === Frontend / Proxy Service ===
   nginx:
-    image: nginx:alpine
+    # Pulls the frontend image (containing Nginx + Static Files) built by GitHub Actions
+    image: ghcr.io/chenty2333/ancient-arch-frontend:latest
     container_name: ancient_arch_proxy
     restart: always
     ports:
       - "80:80"
       - "443:443"
+    # Mount certs from host for SSL
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - app
