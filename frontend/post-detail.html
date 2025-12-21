@@ -83,9 +83,9 @@
             try {
                 const post = await request(`/posts/${postId}`);
                 currentPost = post;
-                document.getElementById("post-title").textContent = post.title;
+                document.getElementById("post-title").textContent = post.title; // textContent is safe
                 document.getElementById("post-date").textContent = new Date(post.created_at).toLocaleString();
-                document.getElementById("post-content").textContent = post.content;
+                document.getElementById("post-content").textContent = post.content; // textContent is safe
                 document.getElementById("like-count").textContent = post.likes_count;
                 document.getElementById("comment-count").textContent = post.comments_count;
                 updateActionButtons(post);
@@ -117,17 +117,17 @@
 
                 const html = comments.map(c => {
                     const isChild = !!c.root_id;
-                    const replyTo = c.parent_id && userMap[c.parent_id] ? `<span style="color:var(--gray-dark)">回复 @${userMap[c.parent_id]}</span> ` : "";
+                    const replyTo = c.parent_id && userMap[c.parent_id] ? `<span style="color:var(--gray-dark)">回复 @${escapeHtml(userMap[c.parent_id])}</span> ` : "";
                     
                     return `
                     <div class="comment-item ${isChild ? 'comment-child' : ''}" id="comment-${c.id}">
                         <div class="comment-meta">
-                            <span class="comment-author">${c.username}</span>
+                            <span class="comment-author">${escapeHtml(c.username)}</span>
                             <span>${new Date(c.created_at).toLocaleDateString()}</span>
                         </div>
-                        <div class="comment-content">${replyTo}${c.content}</div>
+                        <div class="comment-content">${replyTo}${escapeHtml(c.content)}</div>
                         <div class="comment-actions">
-                            <button onclick="showInlineReply(${c.id}, '${c.username}')">回复</button>
+                            <button onclick="showInlineReply(${c.id}, '${escapeHtml(c.username).replace(/'/g, "\\'")}')">回复</button>
                         </div>
                         <!-- 行内回复框容器 -->
                         <div id="reply-container-${c.id}"></div>
@@ -150,6 +150,10 @@
             if (existing) existing.remove();
 
             const container = document.getElementById(`reply-container-${id}`);
+            // name 已经在调用处被 escapeHtml 转义过，但作为属性值（placeholder）仍需小心。
+            // 简单起见，这里再转义一次双引号，或者依靠之前的 escapeHtml (它转义了双引号为 &quot;)
+            // escapeHtml 将 " 转为 &quot;，在 HTML 属性中是安全的。
+            
             container.innerHTML = `
                 <div class="reply-box inline-reply-box">
                     <textarea id="inline-input-${id}" placeholder="回复 @${name}..."></textarea>

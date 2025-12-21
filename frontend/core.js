@@ -34,6 +34,21 @@ const statusBar = {
     }
 };
 
+/**
+ * Escapes HTML characters to prevent XSS attacks.
+ * @param {string} text - The input string to escape.
+ * @returns {string} - The escaped string.
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // --- API 请求封装 ---
 async function request(endpoint, options = {}) {
     // 确保 endpoint 以 / 开头

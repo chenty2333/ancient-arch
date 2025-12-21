@@ -118,44 +118,86 @@
 
 ### 2.2 古建筑知识库 (Architecture)
 
+
+
 #### 获取建筑列表
+
 *   **URL**: `GET /api/architectures`
+
 *   **Query Params**:
+
     *   `category`: (Optional) 按分类筛选，例如 `?category=Palace`。
+
+    *   `q`: (Optional) 按名称模糊搜索，例如 `?q=Forbidden`。
+
 *   **Response (200 OK)**:
+
     ```json
+
     [
+
       {
+
         "id": 1,
+
         "category": "Palace",
+
         "name": "Forbidden City",
+
         "dynasty": "Ming",
+
         "location": "Beijing",
+
         "description": "...",
+
         "cover_img": "http://...",
+
         "carousel_imgs": ["http://...", "http://..."]
+
       }
+
     ]
+
     ```
 
 #### 获取建筑详情
+
 *   **URL**: `GET /api/architectures/{id}`
+
 *   **Response (200 OK)**: 同上（单对象）。
+
+
 
 ---
 
+
+
 ### 2.3 社区论坛 (Community)
 
+
+
 #### 获取帖子列表
+
 *   **URL**: `GET /api/posts`
+
 *   **Query Params**:
+
     *   `cursor`: (Optional) ISO Timestamp (上一次请求的最后一条记录的时间)，用于分页。
+
     *   `limit`: (Optional) 默认 20，最大 100。
+
     *   `sort`: (Optional) `new` (默认) 或 `hot`。
+
+    *   `q`: (Optional) 按标题模糊搜索，例如 `?q=Discovery`。
+
 *   **Response (200 OK)**:
+
     ```json
+
     [
+
       {
+
         "id": 5,
         "user_id": 2,
         "title": "Discussion about Tang Roofs",
@@ -389,7 +431,7 @@
     *   `username`: 3-50 字符。
     *   `password`: 4-128 字符。
 *   **Update**: `PUT /api/admin/users/{id}`
-    *   **Body** (所有字段可选): `{"username": "newname", "role": "user", "password": "newpass"}`
+    *   **Body** (所有字段可选): `{"username": "newname", "role": "user", "password": "newpass", "is_verified": true}`
     *   验证规则同上。
 *   **Delete**: `DELETE /api/admin/users/{id}`
 

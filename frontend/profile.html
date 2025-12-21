@@ -98,10 +98,10 @@
             try {
                 // 1. 获取基本信息
                 const me = await request("/profile/me");
-                document.getElementById("username").textContent = me.username;
+                document.getElementById("username").textContent = me.username; // textContent is safe, no need to change
                 
                 const roleContainer = document.getElementById("role-container");
-                roleContainer.textContent = `身份: ${me.role}`;
+                roleContainer.textContent = `身份: ${me.role}`; // textContent is safe
                 
                 // Admin Button
                 if (me.role === 'admin') {
@@ -143,13 +143,13 @@
                     // 显示最近 5 条
                     contribList.innerHTML = contribs.reverse().slice(0, 5).map(c => {
                         let summary = "";
-                        if (c.type === 'architecture') summary = `[建筑] ${c.data.name}`;
-                        else summary = `[题目] ${c.data.content ? c.data.content.substring(0, 20) + '...' : '新题目'}`;
+                        if (c.type === 'architecture') summary = `[建筑] ${escapeHtml(c.data.name)}`;
+                        else summary = `[题目] ${c.data.content ? escapeHtml(c.data.content).substring(0, 20) + '...' : '新题目'}`;
                         
                         return `
                         <div class="flex-between" style="padding: 0.8rem 0; border-bottom: 1px solid #eee;">
                             <span>${summary}</span>
-                            <span style="font-size:0.9rem;">${statusMap[c.status] || c.status}</span>
+                            <span style="font-size:0.9rem;">${statusMap[c.status] || escapeHtml(c.status)}</span>
                         </div>
                         `;
                     }).join('');

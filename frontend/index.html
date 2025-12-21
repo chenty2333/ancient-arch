@@ -24,13 +24,17 @@
             <h1>建筑图书馆</h1>
             <p style="color: var(--gray-dark)">探索中华大地的结构之美。</p>
             
-            <div id="category-filter" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <div id="category-filter" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
                 <button onclick="filterCategory('')" class="secondary active">全部</button>
                 <button onclick="filterCategory('Palace')" class="secondary">宫殿</button>
                 <button onclick="filterCategory('Temple')" class="secondary">寺庙</button>
                 <button onclick="filterCategory('Garden')" class="secondary">园林</button>
                 <button onclick="filterCategory('Tomb')" class="secondary">陵墓</button>
                 <button onclick="filterCategory('Bridge')" class="secondary">桥梁</button>
+
+                <div style="margin-left: auto;">
+                    <input type="text" id="arch-search" placeholder="搜索古建筑..." style="width: 200px;">
+                </div>
             </div>
         </header>
 
@@ -41,9 +45,20 @@
 
     <script src="core.js"></script>
     <script>
-        async function loadArchitectures(category = "") {
+        let currentCategory = "";
+        let currentQuery = "";
+
+        async function loadArchitectures() {
             try {
-                const endpoint = category ? `/architectures?category=${category}` : "/architectures";
+                let endpoint = "/architectures";
+                const params = [];
+                if (currentCategory) params.push(`category=${currentCategory}`);
+                if (currentQuery) params.push(`q=${encodeURIComponent(currentQuery)}`);
+                
+                if (params.length > 0) {
+                    endpoint += "?" + params.join("&");
+                }
+
                 const data = await request(endpoint);
                 const grid = document.getElementById("arch-grid");
                 
@@ -54,12 +69,12 @@
 
                 grid.innerHTML = data.map(arch => `
                     <a href="architecture-detail.html?id=${arch.id}" class="card">
-                        <img src="${arch.cover_img || 'https://placehold.co/400x300?text=No+Image'}" alt="${arch.name}">
+                        <img src="${escapeHtml(arch.cover_img) || 'https://placehold.co/400x300?text=No+Image'}" alt="${escapeHtml(arch.name)}">
                         <div>
-                            <span class="card-tag">${arch.dynasty}</span>
-                            <span class="card-tag">${arch.category}</span>
-                            <h3 style="margin-top:0.5rem">${arch.name}</h3>
-                            <p style="font-size:0.8rem; color: var(--gray-dark)">${arch.location}</p>
+                            <span class="card-tag">${escapeHtml(arch.dynasty)}</span>
+                            <span class="card-tag">${escapeHtml(arch.category)}</span>
+                            <h3 style="margin-top:0.5rem">${escapeHtml(arch.name)}</h3>
+                            <p style="font-size:0.8rem; color: var(--gray-dark)">${escapeHtml(arch.location)}</p>
                         </div>
                     </a>
                 `).join('');
@@ -69,21 +84,30 @@
         }
 
         function filterCategory(cat) {
+            currentCategory = cat;
             // Update active state
-            document.querySelectorAll("#category-filter button").forEach(b => {
-                if (b.textContent === (cat === '' ? '全部' : cat) || (cat === 'Palace' && b.textContent === '宫殿') || b.getAttribute('onclick').includes(`'${cat}'`)) {
-                   // 简单处理：全重置再设置
-                   b.classList.remove("active"); 
-                }
-            });
-            // Re-highlight logic is a bit complex with mixed text, let's just reload style by recreating buttons or simple toggle class
-            // 简化：移除所有 active，给当前点击的加 active
-            const buttons = document.querySelectorAll("#category-filter button");
+            const buttons = document.querySelectorAll("#category-filter button.secondary");
             buttons.forEach(b => b.classList.remove("active"));
-            event.target.classList.add("active");
+            
+            // 简单匹配文本
+            buttons.forEach(b => {
+                const map = {'': '全部', 'Palace': '宫殿', 'Temple': '寺庙', 'Garden': '园林', 'Tomb': '陵墓', 'Bridge': '桥梁'};
+                if (b.textContent === map[cat]) b.classList.add("active");
+            });
 
-            loadArchitectures(cat);
+            loadArchitectures();
         }
+
+        function doSearch() {
+            currentQuery = document.getElementById("arch-search").value.trim();
+            loadArchitectures();
+        }
+
+        document.getElementById("arch-search").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                doSearch();
+            }
+        });
 
         loadArchitectures();
     </script>

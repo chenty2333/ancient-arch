@@ -35,11 +35,11 @@
                 container.innerHTML = list.map(item => `
                     <div class="card" style="margin-bottom: 1rem; cursor: pointer;" onclick="window.location.href='post-detail.html?id=${item.post_id}'">
                         <div class="flex-between">
-                            <h3 style="margin: 0; font-size: 1.1rem;">${item.title}</h3>
+                            <h3 style="margin: 0; font-size: 1.1rem;">${escapeHtml(item.title)}</h3>
                             <span style="font-size: 0.8rem; color: var(--gray-dark);">${new Date(item.favorited_at).toLocaleDateString()}</span>
                         </div>
                         <p style="font-size: 0.9rem; color: var(--gray-dark); margin-top: 0.5rem;">
-                            作者: ${item.author_username}
+                            作者: ${escapeHtml(item.author_username)}
                         </p>
                     </div>
                 `).join('');

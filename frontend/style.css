@@ -101,6 +101,19 @@ button.secondary { background: var(--gray-light); color: var(--text); border: 1p
 #status-bar.visible { transform: translateY(0); }
 #status-bar.error { background: #b00020; }
 
-/* 工具类 */
+/* 覆盖默认 Input 样式，使其更极简 */
+input[type="text"], input[type="password"], input[type="url"], textarea, select {
+    border: 1px solid var(--gray-mid);
+    border-radius: 2px;
+    padding: 0.6rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+    border-color: var(--text);
+    outline: none;
+}
+
+/* Utilities */
 .hidden { display: none !important; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }

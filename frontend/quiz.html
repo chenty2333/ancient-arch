@@ -114,12 +114,12 @@
                 return `
                 <div class="card" style="margin-bottom: 1rem;">
                     <p style="font-weight: bold; margin-bottom: 0.5rem;">
-                        ${idx+1}. [${q.question_type === 'multiple' ? '多选' : '单选'}] ${q.content}
+                        ${idx+1}. [${q.question_type === 'multiple' ? '多选' : '单选'}] ${escapeHtml(q.content)}
                     </p>
                     ${opts.map((opt, i) => `
                         <label style="display: block; margin: 0.3rem 0; cursor: pointer;">
                             <input type="${inputType}" name="${inputName}" value="${String.fromCharCode(65+i)}">
-                            ${opt}
+                            ${escapeHtml(opt)}
                         </label>
                     `).join('')}
                 </div>

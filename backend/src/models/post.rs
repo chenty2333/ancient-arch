@@ -57,4 +57,7 @@ pub struct PostListParams {
 
     /// Sort order: 'new' (default) or 'hot'.
     pub sort: Option<String>,
+
+    /// Search keyword for title match.
+    pub q: Option<String>,
 }

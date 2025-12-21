@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                        SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as \"carousel_imgs: sqlx::types::Json<Vec<String>>\"\n            FROM architectures\n            ",
+  "query": "\n        SELECT id, category, name, dynasty, location, description, cover_img, carousel_imgs as \"carousel_imgs: sqlx::types::Json<Vec<String>>\"\n        FROM architectures\n        WHERE ($1::TEXT IS NULL OR category = $1)\n          AND ($2::TEXT IS NULL OR name ILIKE $2)\n        ",
   "describe": {
     "columns": [
       {
@@ -45,7 +45,10 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text",
+        "Text"
+      ]
     },
     "nullable": [
       false,
@@ -58,5 +61,5 @@
       false
     ]
   },
-  "hash": "9ae6f749c85564c1d573b92e35c0c99f84ae5d733a1135f25dc02fbeba031fdc"
+  "hash": "5476288f1b401709fbb81c6c19fb88241ea9be8fd7946707a63c6628b0a1839c"
 }

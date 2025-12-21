@@ -230,7 +230,7 @@
                     const typeLabel = item.type === 'architecture' ? '建筑' : '题目';
                     
                     // 构建数据预览
-                    let preview = JSON.stringify(item.data, null, 2);
+                    let preview = escapeHtml(JSON.stringify(item.data, null, 2));
                     
                     // 操作区 HTML
                     let actionHtml = '';
@@ -252,7 +252,7 @@
                     } else {
                         actionHtml = `
                             <div style="margin-top: 1rem; padding: 1rem; background: #f9f9f9; border-left: 3px solid var(--gray-mid);">
-                                <p style="font-size: 0.9rem;"><strong>管理员意见:</strong> ${item.admin_comment || '无'}</p>
+                                <p style="font-size: 0.9rem;"><strong>管理员意见:</strong> ${escapeHtml(item.admin_comment || '无')}</p>
                                 <p style="font-size: 0.8rem; color: var(--gray-dark); margin-top:0.3rem;">审核时间: ${item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : '未知'}</p>
                             </div>
                         `;
@@ -332,14 +332,23 @@
                         </tr>
                         ${users.map(u => {
                             const isMe = u.id === me.id;
+                            const isGhost = u.username === 'ghost';
                             // 二段式删除按钮逻辑
                             return `
                             <tr style="border-bottom:1px solid #eee; background: ${isMe ? '#f9f9f9' : 'white'}">
                                 <td style="padding:8px;">${u.id}</td>
-                                <td>${u.username} ${isMe ? '(我)' : ''}</td>
-                                <td>${u.role}</td>
                                 <td>
-                                    ${isMe ? 
+                                    ${escapeHtml(u.username)} ${isMe ? '(我)' : ''}
+                                    ${u.is_verified ? '<span style="color:green; font-size:0.8rem">✓</span>' : ''}
+                                </td>
+                                <td>${escapeHtml(u.role)}</td>
+                                <td>
+                                    ${isMe || isGhost ? '' : `
+                                        <button class="secondary" style="padding:2px 8px; font-size:0.8rem; margin-right:5px;" onclick="toggleUserVerify(${u.id}, ${!u.is_verified})">
+                                            ${u.is_verified ? '撤销认证' : '手动认证'}
+                                        </button>
+                                    `}
+                                    ${isMe || isGhost ? 
                                         '<span style="color:gray; font-size:0.8rem;">不可删除</span>' : 
                                         `<button class="secondary" id="btn-del-user-${u.id}" style="padding:2px 8px; font-size:0.8rem;" onclick="confirmDeleteUser(${u.id})">删除</button>`
                                     }
@@ -379,6 +388,17 @@
             try {
                 await request(`/admin/users/${id}`, { method: "DELETE" });
                 statusBar.show("用户已删除", "info");
+                loadUsers();
+            } catch(e) {}
+        }
+
+        async function toggleUserVerify(id, newStatus) {
+            try {
+                await request(`/admin/users/${id}`, {
+                    method: "PUT",
+                    body: JSON.stringify({ is_verified: newStatus })
+                });
+                statusBar.show(newStatus ? "已认证用户" : "已撤销认证", "info");
                 loadUsers();
             } catch(e) {}
         }

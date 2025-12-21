@@ -38,7 +38,7 @@
                 container.innerHTML = list.map(item => `
                     <div class="card" style="margin-bottom: 1rem; cursor: pointer;" onclick="window.location.href='post-detail.html?id=${item.id}'">
                         <div class="flex-between">
-                            <h3 style="margin: 0; font-size: 1.1rem;">${item.title}</h3>
+                            <h3 style="margin: 0; font-size: 1.1rem;">${escapeHtml(item.title)}</h3>
                             <span style="font-size: 0.8rem; color: var(--gray-dark);">${new Date(item.created_at).toLocaleDateString()}</span>
                         </div>
                         <div class="flex-between" style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--gray-dark);">

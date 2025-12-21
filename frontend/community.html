@@ -25,9 +25,15 @@
             <button class="auth-only hidden" onclick="window.location.href='create-post.html'">发布帖子 +</button>
         </div>
 
-        <div id="sort-filter" style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
-            <button onclick="filterSort('new')" class="secondary active">最新发布</button>
-            <button onclick="filterSort('hot')" class="secondary">热门讨论</button>
+        <div id="sort-filter" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.5rem;">
+                <button onclick="filterSort('new')" class="secondary active">最新发布</button>
+                <button onclick="filterSort('hot')" class="secondary">热门讨论</button>
+            </div>
+            
+            <div style="margin-left: auto;">
+                <input type="text" id="search-input" placeholder="搜索帖子标题..." style="width: 200px;">
+            </div>
         </div>
 
         <div id="post-list" style="margin-top: 2rem;">
@@ -37,10 +43,18 @@
 
     <script src="core.js"></script>
     <script>
-        async function loadPosts(sort = "new") {
+        let currentSort = "new";
+        let currentQuery = "";
+
+        async function loadPosts() {
             try {
-                // 后端 API: GET /api/posts?limit=20&sort=new|hot
-                const data = await request(`/posts?limit=20&sort=${sort}`);
+                // 后端 API: GET /api/posts?limit=20&sort=new|hot&q=...
+                let url = `/posts?limit=20&sort=${currentSort}`;
+                if (currentQuery) {
+                    url += `&q=${encodeURIComponent(currentQuery)}`;
+                }
+
+                const data = await request(url);
                 const list = document.getElementById("post-list");
                 
                 if (!data || data.length === 0) {
@@ -51,11 +65,11 @@
                 list.innerHTML = data.map(post => `
                     <div class="card" style="margin-bottom: 1rem; cursor: pointer" onclick="window.location.href='post-detail.html?id=${post.id}'">
                         <div class="flex-between">
-                            <h3 style="margin: 0">${post.title}</h3>
+                            <h3 style="margin: 0">${escapeHtml(post.title)}</h3>
                             <span style="font-size: 0.8rem; color: var(--gray-dark)">${new Date(post.created_at).toLocaleDateString()}</span>
                         </div>
                         <p style="font-size: 0.9rem; color: var(--gray-dark); margin: 0.5rem 0;">
-                            ${post.content.substring(0, 150)}${post.content.length > 150 ? '...' : ''}
+                            ${escapeHtml(post.content).substring(0, 150)}${post.content.length > 150 ? '...' : ''}
                         </p>
                         <div style="font-size: 0.75rem; color: var(--gray-dark)">
                             用户 ID: ${post.user_id} · 赞 ${post.likes_count} · 评论 ${post.comments_count}
@@ -66,11 +80,27 @@
         }
 
         function filterSort(sortType) {
-            const buttons = document.querySelectorAll("#sort-filter button");
+            currentSort = sortType;
+            const buttons = document.querySelectorAll("#sort-filter button.secondary"); // 只选中排序按钮
             buttons.forEach(b => b.classList.remove("active"));
-            event.target.classList.add("active");
-            loadPosts(sortType);
+            // 简单处理：重新选中对应的
+            if (sortType === 'new') buttons[0].classList.add("active");
+            if (sortType === 'hot') buttons[1].classList.add("active");
+            
+            loadPosts();
         }
+
+        function doSearch() {
+            currentQuery = document.getElementById("search-input").value.trim();
+            loadPosts();
+        }
+        
+        // 允许回车搜索
+        document.getElementById("search-input").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                doSearch();
+            }
+        });
 
         loadPosts();
     </script>

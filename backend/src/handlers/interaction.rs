@@ -242,7 +242,7 @@ pub async fn list_comments(
         FROM comments c
         JOIN users u ON c.user_id = u.id
         WHERE c.post_id = $1 AND c.deleted_at IS NULL
-        ORDER BY c.created_at DESC
+        ORDER BY c.created_at ASC
         LIMIT $2 OFFSET $3
         "#,
         post_id,

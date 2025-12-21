@@ -93,7 +93,7 @@
 
                 return (
                 `<div class="card" style="margin-bottom: 1.5rem; border: none; background: #fff;">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">${idx + 1}. ${q.content}</h3>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">${idx + 1}. ${escapeHtml(q.content)}</h3>
                     <div class="options">
                         ${opts.map((opt, optIdx) => {
                             const val = String.fromCharCode(65 + optIdx); // A, B, C, D
@@ -103,7 +103,7 @@
                             `<div style="margin-bottom: 0.5rem;">
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="${type}" name="q-${q.id}" value="${val}" style="width: auto; margin-right: 0.8rem;">
-                                    <span style="color: var(--text); font-size: 1rem;">${opt}</span>
+                                    <span style="color: var(--text); font-size: 1rem;">${escapeHtml(opt)}</span>
                                 </label>
                             </div>
                             `)

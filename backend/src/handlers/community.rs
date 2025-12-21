@@ -59,6 +59,9 @@ pub async fn list_posts(
 ) -> Result<impl IntoResponse, AppError> {
     let limit = params.limit.unwrap_or(20).min(100);
     let sort = params.sort.unwrap_or_else(|| "new".to_string());
+    
+    // Prepare search pattern: "%keyword%"
+    let search_pattern = params.q.map(|k| format!("%{}%", k));
 
     let posts = if sort == "hot" {
         sqlx::query_as!(
@@ -71,13 +74,15 @@ pub async fn list_posts(
                 FALSE as "is_liked!", FALSE as "is_favorited!"
             FROM posts
             WHERE deleted_at IS NULL
+              AND ($2::TEXT IS NULL OR title ILIKE $2)
             ORDER BY (
                 (likes_count * 5 + comments_count * 3 + favorites_count * 10)::FLOAT / 
                 POW(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600 + 2, 1.5)
             ) DESC
             LIMIT $1
             "#,
-            limit
+            limit,
+            search_pattern
         )
         .fetch_all(&pool)
         .await
@@ -97,11 +102,13 @@ pub async fn list_posts(
             FROM posts
             WHERE deleted_at IS NULL
               AND ($1::TIMESTAMPTZ IS NULL OR created_at < $1)
+              AND ($3::TEXT IS NULL OR title ILIKE $3)
             ORDER BY created_at DESC
             LIMIT $2
             "#,
             params.cursor,
-            limit
+            limit,
+            search_pattern
         )
         .fetch_all(&pool)
         .await

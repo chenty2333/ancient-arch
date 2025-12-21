@@ -47,6 +47,7 @@ pub struct AdminUpdateUserRequest {
     pub role: Option<String>,
     #[validate(length(min = 4, max = 128))]
     pub password: Option<String>,
+    pub is_verified: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,7 +138,11 @@ pub async fn update_user(
     let mut separated = builder.separated(", ");
 
     // If no fields provided, just return OK
-    if payload.username.is_none() && payload.role.is_none() && payload.password.is_none() {
+    if payload.username.is_none()
+        && payload.role.is_none()
+        && payload.password.is_none()
+        && payload.is_verified.is_none()
+    {
         return Ok(StatusCode::OK);
     }
 
@@ -153,6 +158,10 @@ pub async fn update_user(
         let hashed = hash_password(&new_password)?;
         separated.push("password = ");
         separated.push_bind_unseparated(hashed);
+    }
+    if let Some(verified) = payload.is_verified {
+        separated.push("is_verified = ");
+        separated.push_bind_unseparated(verified);
     }
 
     builder.push(" WHERE id = ");
@@ -217,12 +226,57 @@ pub async fn delete_user(
         return Err(AppError::BadRequest("Cannot delete yourself".to_string()));
     }
 
+    let mut tx = pool.begin().await?;
+
+    // 1. 获取幽灵用户 ID
+    let ghost_id = sqlx::query!("SELECT id FROM users WHERE username = 'ghost'")
+        .fetch_optional(&mut *tx)
+        .await?
+        .map(|r| r.id)
+        .ok_or_else(|| AppError::InternalServerError("Ghost user not found".to_string()))?;
+
+    // 防止删除幽灵用户本身
+    if id == ghost_id {
+        return Err(AppError::BadRequest("Cannot delete the ghost user".to_string()));
+    }
+
+    // 2. 转移帖子
+    sqlx::query!(
+        "UPDATE posts SET user_id = $1 WHERE user_id = $2",
+        ghost_id,
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // 3. 转移评论
+    sqlx::query!(
+        "UPDATE comments SET user_id = $1 WHERE user_id = $2",
+        ghost_id,
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+    
+    // 4. 转移其他关联 (点赞/收藏) 通常直接删除，因为这代表"某人的喜好"，
+    // 但如果想彻底保留"热度"，也可以保留。这里我们选择删除点赞记录，因为点赞是个人行为。
+    // 由于之前 interactions 表可能是 CASCADE，也可能是 Restrict。
+    // 如果是 Restrict，这里必须先手动删。
+    // 检查迁移记录，interactions 表 (post_likes, post_favorites) 依然是 ON DELETE CASCADE 
+    // (因为我只改了 posts 和 comments 的 FK)。
+    // 所以，删除用户时，他的点赞/收藏会自动消失，符合逻辑。
+
+    // 5. 删除用户
     let result = sqlx::query!("DELETE FROM users WHERE id = $1", id)
-        .execute(&pool)
+        .execute(&mut *tx)
         .await?;
+
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound("User not found".to_string()));
     }
+
+    tx.commit().await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
