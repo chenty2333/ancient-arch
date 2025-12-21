@@ -43,7 +43,7 @@ pub struct PublicQuestion {
 /// DTO for creating a new question.
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateQuestionRequest {
-    #[validate(length(min = 1, max = 20))]
+    #[validate(length(min = 1, max = 20), custom(function = validate_question_type))]
     pub question_type: String,
     #[validate(length(min = 1, max = 1000))]
     pub content: String,
@@ -55,6 +55,15 @@ pub struct CreateQuestionRequest {
     pub analysis: Option<String>,
 }
 
+/// Ensures the question type is restricted to allowed enum values.
+fn validate_question_type(q_type: &str) -> Result<(), validator::ValidationError> {
+    if q_type != "single" && q_type != "multiple" {
+        return Err(validator::ValidationError::new("invalid_question_type"));
+    }
+    Ok(())
+}
+
+/// Validates the list of options, ensuring it's not empty and items are within size limits.
 fn validate_options(options: &[String]) -> Result<(), validator::ValidationError> {
     if options.is_empty() {
         return Err(validator::ValidationError::new("options_cannot_be_empty"));

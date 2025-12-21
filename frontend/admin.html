@@ -270,7 +270,7 @@
                     `;
                 }).join('');
             } catch(e) {
-                list.innerHTML = "加载失败";
+                list.innerHTML = `<p style="color:red">加载失败: ${escapeHtml(e.message)}</p>`;
             }
         }
 
@@ -316,6 +316,7 @@
 
         async function loadUsers() {
             const list = document.getElementById("user-list");
+            list.innerHTML = "加载中...";
             try {
                 const [users, me] = await Promise.all([
                     request("/admin/users"),
@@ -358,7 +359,9 @@
                         }).join('')}
                     </table>
                 `;
-            } catch(e) {}
+            } catch(e) {
+                list.innerHTML = `<p style="color:red">加载失败: ${escapeHtml(e.message)}</p>`;
+            }
         }
 
         function confirmDeleteUser(id) {

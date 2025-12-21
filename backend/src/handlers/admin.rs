@@ -18,6 +18,7 @@ use crate::{
     },
     utils::hash::hash_password,
     utils::jwt::Claims,
+    utils::html::clean_html,
 };
 
 // --- DTOs ---
@@ -228,19 +229,19 @@ pub async fn delete_user(
 
     let mut tx = pool.begin().await?;
 
-    // 1. 获取幽灵用户 ID
+    // 1. Fetch the ghost user ID for account deletion redirection
     let ghost_id = sqlx::query!("SELECT id FROM users WHERE username = 'ghost'")
         .fetch_optional(&mut *tx)
         .await?
         .map(|r| r.id)
         .ok_or_else(|| AppError::InternalServerError("Ghost user not found".to_string()))?;
 
-    // 防止删除幽灵用户本身
+    // Prevent deletion of the system-critical ghost user
     if id == ghost_id {
         return Err(AppError::BadRequest("Cannot delete the ghost user".to_string()));
     }
 
-    // 2. 转移帖子
+    // 2. Transfer posts to the ghost user
     sqlx::query!(
         "UPDATE posts SET user_id = $1 WHERE user_id = $2",
         ghost_id,
@@ -249,7 +250,7 @@ pub async fn delete_user(
     .execute(&mut *tx)
     .await?;
 
-    // 3. 转移评论
+    // 3. Transfer comments to the ghost user
     sqlx::query!(
         "UPDATE comments SET user_id = $1 WHERE user_id = $2",
         ghost_id,
@@ -258,15 +259,11 @@ pub async fn delete_user(
     .execute(&mut *tx)
     .await?;
     
-    // 4. 转移其他关联 (点赞/收藏) 通常直接删除，因为这代表"某人的喜好"，
-    // 但如果想彻底保留"热度"，也可以保留。这里我们选择删除点赞记录，因为点赞是个人行为。
-    // 由于之前 interactions 表可能是 CASCADE，也可能是 Restrict。
-    // 如果是 Restrict，这里必须先手动删。
-    // 检查迁移记录，interactions 表 (post_likes, post_favorites) 依然是 ON DELETE CASCADE 
-    // (因为我只改了 posts 和 comments 的 FK)。
-    // 所以，删除用户时，他的点赞/收藏会自动消失，符合逻辑。
+    // 4. Note on interactions (likes/favorites):
+    // These are usually handled via ON DELETE CASCADE in the database schema.
+    // We keep this behavior as likes are personal and don't need transfer.
 
-    // 5. 删除用户
+    // 5. Delete the target user
     let result = sqlx::query!("DELETE FROM users WHERE id = $1", id)
         .execute(&mut *tx)
         .await?;
@@ -288,13 +285,16 @@ pub async fn create_architecture(
 ) -> Result<impl IntoResponse, AppError> {
     payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
     let carousel_json = serde_json::to_value(payload.carousel_imgs).unwrap_or_default();
+    
+    let clean_desc = clean_html(&payload.description);
+
     let id = sqlx::query!(
         r#"
         INSERT INTO architectures (category, name, dynasty, location, description, cover_img, carousel_imgs)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
         "#,
-        payload.category, payload.name, payload.dynasty, payload.location, payload.description, payload.cover_img, carousel_json
+        payload.category, payload.name, payload.dynasty, payload.location, clean_desc, payload.cover_img, carousel_json
     )
     .fetch_one(&pool)
     .await?
@@ -331,7 +331,7 @@ pub async fn update_architecture(
     }
     if let Some(v) = payload.description {
         separated.push("description = ");
-        separated.push_bind_unseparated(v);
+        separated.push_bind_unseparated(clean_html(&v));
     }
     if let Some(v) = payload.cover_img {
         separated.push("cover_img = ");
@@ -374,9 +374,14 @@ pub async fn create_question(
     payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let options_json = serde_json::to_value(payload.options).unwrap_or_default();
+    
+    let clean_content = clean_html(&payload.content);
+    let clean_answer = clean_html(&payload.answer);
+    let clean_analysis = payload.analysis.as_ref().map(|a| clean_html(a));
+
     let id = sqlx::query!(
         "INSERT INTO questions (type, content, options, answer, analysis) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-        payload.question_type, payload.content, options_json, payload.answer, payload.analysis
+        payload.question_type, clean_content, options_json, clean_answer, clean_analysis
     )
     .fetch_one(&pool)
     .await?
@@ -401,7 +406,7 @@ pub async fn update_question(
     }
     if let Some(v) = payload.content {
         separated.push("content = ");
-        separated.push_bind_unseparated(v);
+        separated.push_bind_unseparated(clean_html(&v));
     }
     if let Some(v) = payload.options {
         separated.push("options = ");
@@ -409,11 +414,11 @@ pub async fn update_question(
     }
     if let Some(v) = payload.answer {
         separated.push("answer = ");
-        separated.push_bind_unseparated(v);
+        separated.push_bind_unseparated(clean_html(&v));
     }
     if let Some(v) = payload.analysis {
         separated.push("analysis = ");
-        separated.push_bind_unseparated(v);
+        separated.push_bind_unseparated(clean_html(&v));
     }
 
     builder.push(" WHERE id = ");
@@ -476,17 +481,22 @@ pub async fn review_contribution(
             "architecture" => {
                 let data: CreateArchRequest = serde_json::from_value(contrib.data)?;
                 let carousel = serde_json::to_value(data.carousel_imgs).unwrap_or_default();
+                let clean_desc = clean_html(&data.description);
                 sqlx::query!(
                     "INSERT INTO architectures (category, name, dynasty, location, description, cover_img, carousel_imgs) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                    data.category, data.name, data.dynasty, data.location, data.description, data.cover_img, carousel
+                    data.category, data.name, data.dynasty, data.location, clean_desc, data.cover_img, carousel
                 ).execute(&mut *tx).await?;
             }
             "question" => {
                 let data: CreateQuestionRequest = serde_json::from_value(contrib.data)?;
                 let options = serde_json::to_value(data.options).unwrap_or_default();
+                let clean_content = clean_html(&data.content);
+                let clean_answer = clean_html(&data.answer);
+                let clean_analysis = data.analysis.map(|a| clean_html(&a));
+                
                 sqlx::query!(
                     "INSERT INTO questions (type, content, options, answer, analysis) VALUES ($1, $2, $3, $4, $5)",
-                    data.question_type, data.content, options, data.answer, data.analysis
+                    data.question_type, clean_content, options, clean_answer, clean_analysis
                 ).execute(&mut *tx).await?;
             }
             _ => return Err(AppError::BadRequest("Unknown type".to_string())),

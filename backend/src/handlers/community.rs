@@ -11,6 +11,7 @@ use crate::{
     error::AppError,
     models::post::{CreatePostRequest, Post, PostListParams},
     utils::jwt::{Claims, VerifiedUser},
+    utils::html::clean_html,
 };
 
 /// Create a new post.
@@ -20,12 +21,16 @@ pub async fn create_post(
     user: VerifiedUser,
     Json(payload): Json<CreatePostRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // 1. Validate payload
+    // 1. Validate payload using the validator crate
     payload
         .validate()
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
-    // 2. Insert Post (Permissions already checked by VerifiedUser extractor)
+    // 2. Sanitize HTML content to prevent XSS
+    let clean_title = clean_html(&payload.title);
+    let clean_content = clean_html(&payload.content);
+
+    // 3. Insert into the database (Permissions checked by VerifiedUser extractor)
     let post_id = sqlx::query!(
         r#"
         INSERT INTO posts (user_id, title, content)
@@ -33,8 +38,8 @@ pub async fn create_post(
         RETURNING id
         "#,
         user.id,
-        payload.title,
-        payload.content
+        clean_title,
+        clean_content
     )
     .fetch_one(&pool)
     .await

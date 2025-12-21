@@ -18,7 +18,7 @@ pub struct Contribution {
 /// DTO for submission.
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateContributionRequest {
-    #[validate(length(min = 1, max = 20))]
+    #[validate(length(min = 1, max = 20), custom(function = validate_contribution_type))]
     pub r#type: String,
 
     /// The payload must be a valid JSON matching the target model's create request.
@@ -26,6 +26,15 @@ pub struct CreateContributionRequest {
     pub data: serde_json::Value,
 }
 
+/// Restricts the contribution type to 'architecture' or 'question'.
+fn validate_contribution_type(c_type: &str) -> Result<(), validator::ValidationError> {
+    if c_type != "architecture" && c_type != "question" {
+        return Err(validator::ValidationError::new("invalid_contribution_type"));
+    }
+    Ok(())
+}
+
+/// Limits the total JSON payload size to prevent resource exhaustion attacks.
 fn validate_data_size(data: &serde_json::Value) -> Result<(), validator::ValidationError> {
     // Limit total JSON size to roughly 50KB to prevent abuse
     if data.to_string().len() > 50000 {

@@ -11,6 +11,7 @@ use crate::{
     error::AppError,
     models::comment::{CommentListParams, CommentResponse, CreateCommentRequest},
     utils::jwt::Claims,
+    utils::html::clean_html,
 };
 
 /// Toggle Like on a post.
@@ -173,10 +174,10 @@ pub async fn create_comment(
 
     let mut tx = pool.begin().await?;
 
-    // 1. Logic for root_id and parent_id
+    // 1. Determine root_id and parent_id for nested comments
     let mut root_id: Option<i64> = None;
     if let Some(pid) = payload.parent_id {
-        // Fetch parent to find its root
+        // Fetch parent to determine the thread's root
         let parent = sqlx::query!(
             "SELECT id, root_id FROM comments WHERE id = $1 AND post_id = $2",
             pid,
@@ -186,12 +187,14 @@ pub async fn create_comment(
         .await?
         .ok_or(AppError::NotFound("Parent comment not found".to_string()))?;
 
-        // If parent has a root_id, then this new comment's root is that same root.
-        // If parent's root_id is NULL, then the parent IS the root.
+        // If the parent already belongs to a root, use it; otherwise, the parent is the root.
         root_id = Some(parent.root_id.unwrap_or(parent.id));
     }
 
-    // 2. Insert Comment
+    // 2. Sanitize input to ensure safety
+    let clean_content = clean_html(&payload.content);
+
+    // 3. Insert the new comment
     let new_id = sqlx::query!(
         r#"
         INSERT INTO comments (post_id, user_id, content, root_id, parent_id)
@@ -200,7 +203,7 @@ pub async fn create_comment(
         "#,
         post_id,
         user_id,
-        payload.content,
+        clean_content,
         root_id,
         payload.parent_id
     )

@@ -3,6 +3,10 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use validator::Validate;
+use regex::Regex;
+use std::sync::LazyLock;
+
+static USERNAME_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_]+$").unwrap());
 
 /// Represents the 'users' table in the database.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
@@ -54,6 +58,9 @@ pub struct CreateUserRequest {
         min = 3,
         max = 50,
         message = "Username length must be between 3 and 50 characters."
+    ), regex(
+        path = *USERNAME_REGEX,
+        message = "Username can only contain alphanumeric characters and underscores."
     ))]
     pub username: String,
     #[validate(length(

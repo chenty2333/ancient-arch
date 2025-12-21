@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, types::Json};
 use validator::Validate;
+use url::Url;
 
 /// Represents the 'architectures' table in the database.
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -43,16 +44,28 @@ pub struct CreateArchRequest {
     pub location: String,
     #[validate(length(min = 1, max = 20000))]
     pub description: String,
-    #[validate(length(min = 1, max = 500))]
+    #[validate(length(min = 1, max = 500), custom(function = validate_url_string))]
     pub cover_img: String,
     #[validate(custom(function = validate_carousel_urls))]
     pub carousel_imgs: Vec<String>,
 }
 
+/// Validates that a string is a correctly formatted URL.
+fn validate_url_string(url: &str) -> Result<(), validator::ValidationError> {
+    if Url::parse(url).is_err() {
+        return Err(validator::ValidationError::new("invalid_url"));
+    }
+    Ok(())
+}
+
+/// Validates a collection of URLs, ensuring each meets length and format requirements.
 fn validate_carousel_urls(urls: &[String]) -> Result<(), validator::ValidationError> {
     for url in urls {
         if url.len() > 500 {
             return Err(validator::ValidationError::new("url_too_long"));
+        }
+        if Url::parse(url).is_err() {
+             return Err(validator::ValidationError::new("invalid_url"));
         }
     }
     Ok(())
